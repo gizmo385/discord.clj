@@ -62,12 +62,3 @@
   (json/read-str
     (:body
       (discord-request auth :get (format "/guilds/%s/channels" guild-id)))))
-
-(comment
-  (require '[clojure.pprint :refer [pprint]])
-  (discord-request (BotStub.) :get "/gateway/bot")
-  (pprint (get-guilds (BotStub.)))
-  (pprint (send-message (BotStub.) 328324837963464705 "Test message"))
-  (pprint (send-typing (BotStub.) 328324837963464705))
-  (pprint (get-channels (BotStub.) 328324837963464705))
-  )
