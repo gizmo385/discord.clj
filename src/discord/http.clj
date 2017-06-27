@@ -4,7 +4,9 @@
             [clojure.data.json :as json]
             [clojure.string :as s]
             [swiss.arrows :refer [-<> -<>>]]
-            [discord.config :as config]))
+            [discord.config :as config]
+            [discord.types :as types]
+            [discord.utils :as utils]))
 
 ;;; Global constants for interacting with the API
 (defonce user-agent "DiscordBot (https://github.com/gizmo385/discord.clj)")
@@ -49,17 +51,20 @@
    :kick                (Route. "/guilds/%s/members/%s" :delete)
    :ban                 (Route. "/guilds/%s/bans/%s" :put)
    :unban               (Route. "/guilds/%s/bans/%s" :delete)
-   :server-voice-state  (Route. "/guilds/%s/members/%s" :patch)
-   :edit-profile        (Route. "/users/@me" :patch)
-   :update-nickname     (Route. "/guilds/%s/members/@me/nick" :patch)
+   :get-member          (Route. "/guilds/%s/members/%s" :get)
    :edit-member         (Route. "/guilds/%s/members/%s" :patch)
 
+   ;; Current user management
+   :edit-profile        (Route. "/users/@me" :patch)
+   :update-nickname     (Route. "/guilds/%s/members/@me/nick" :patch)
+
    ;; Server/Guild Management
-   :get-guilds          (Route. "/users/@me/guilds" :get)
+   :get-servers         (Route. "/users/@me/guilds" :get)
    :leave-server        (Route. "/users/@me/guilds/%s" :delete)
    :delete-server       (Route. "/guilds/%s" :delete)
    :create-server       (Route. "/guilds" :post)
    :edit-server         (Route. "/guilds/%s" :patch)
+   :list-members        (Route. "/guilds/%s/members" :get)
    :prune-members       (Route. "/guilds/%s/prune" :post)
    :prunable-members    (Route. "/guilds/%s/prune" :get)
 
@@ -68,7 +73,6 @@
    :create-channel      (Route. "/guilds/%s/channels" :post)
    :edit-channel        (Route. "/channels/%s" :patch)
    :delete-channel      (Route. "/channels/%s" :delete)
-   :move-channels       (Route. "/guilds/%s/channels" :patch)
 
    ;; Emojis
    :create-emoji        (Route. "/guilds/%s/emojis" :post)
@@ -98,7 +102,7 @@
 
 (defn get-endpoint [endpoint-key & args]
   (if-let [{:keys [endpoint method]} (get endpoint-mapping endpoint-key)]
-    {:endpoint (apply format endpoint args) :method method}
+    {:endpoint (apply format endpoint (map utils/get-id args)) :method method}
     (ex-info "Invalid endpoint supplied" {:endpoint endpoint-key})))
 
 ;;; Making requests to the Discord API
@@ -117,7 +121,7 @@
       :delete   (assoc request :body (json/write-str json) :content-type :json)
       (throw (ex-info "Unknown request method" {:endpoint endpoint :method method})))))
 
-;;; General request wrappe
+;;; General request wrapper
 (defn discord-request
   "General wrapper function for handling requests to the discord APIs.
 
@@ -129,13 +133,17 @@
 
    :json map - An optional JSON body to pass along with post/put/patch/delete request
    :params map - Optional query parameters to pass along with a get request
-   :args list - In order (format) arguments to correctly format the endpoint from endpoint-mapping"
-  [endpoint-key auth & {:keys [json params args]}]
+   :args list - In order (format) arguments to correctly format the endpoint from endpoint-mapping
+   :constructor f - A function which is mapped over API responses to create appropriate Records."
+  [endpoint-key auth & {:keys [json params args constructor] :or {constructor identity}}]
   (let [{:keys [endpoint method]} (apply get-endpoint endpoint-key args)
         request                   (build-request endpoint method auth json params)
         result                    (client/request request)]
     (condp = (:status result)
-      200 (json/read-str (:body result) :key-fn keyword)
+      200 (-<> result
+               (:body)
+               (json/read-str :key-fn keyword)
+                (map constructor <>))
       204 true
       result)))
 
@@ -184,13 +192,64 @@
   (discord-request :clear-reactions :args [channel-id message-id]))
 
 ;;; Iteracting with guilds
-(defn get-guilds [auth]
-  (discord-request :get-guilds auth))
+(defn get-servers [auth]
+  (discord-request :get-servers auth :constructor types/build-server))
+
+(defn find-server [auth server-name]
+  (if-let [servers (get-servers auth)]
+    (filter #(= server-name (:name %1)) servers)))
+
+(defn edit-server [auth guild-id & {:keys [name region] :as params}]
+  (discord-request :edit-server auth :args [guild-id] :json params))
+
+(defn list-members [auth guild-id & {:keys [limit after] :as params}]
+  (discord-request :list-members auth :args [guild-id] :params params
+                   :constructor types/build-user))
+
+(defn find-member [auth guild-id member-name]
+  (let [members (list-members auth guild-id)]
+    (filter (fn [member] (= member-name (-> member :user :username))) members)))
+
+;;; Server member management
+(defn kick [auth guild-id user-id]
+  (discord-request :kick auth :args [guild-id user-id]))
+
+(defn ban [auth guild-id user-id]
+  (discord-request :ban auth :args [guild-id user-id]))
+
+(defn unban [auth guild-id user-id]
+  (discord-request :unban auth :args [guild-id user-id]))
+
+(defn get-member [auth guild-id user-id]
+  (discord-request :get-member auth :args [guild-id user-id] :constructor types/build-user))
+
+(defn edit-member [auth guild-id user-id & {:keys [nick roles mute deaf channel_id] :as params}]
+  (discord-request :edit-member auth :args [guild-id user-id] :json params))
+
+(defn update-nickname [auth guild-id nickname]
+  (discord-request :update-nickname auth :args [guild-id] :json {:nick nickname}))
+
+
+;;; Current user management
+(defn edit-profile [auth & {:keys [username avatar] :as params}]
+  (discord-request :edit-profile auth :json params))
 
 
 ;;; Interacting with channels
 (defn get-channels [auth guild-id]
-  (discord-request :get-channels auth :args [guild-id]))
+  (discord-request :get-channels auth :args [guild-id] :constructor types/build-channel))
+
+(defn get-voice-channels [auth guild-id]
+  (let [channels (get-channels auth guild-id)]
+    (filter (fn [channel] (= 2 (:type channel))) channels)))
+
+(defn get-text-channels [auth guild-id]
+  (let [channels (get-channels auth guild-id)]
+    (filter (fn [channel] (= 0 (:type channel))) channels)))
+
+(defn find-channel [auth guild-id channel-name]
+  (let [channels (get-channels auth guild-id)]
+    (filter (fn [channel] (= channel-name) (:name channel)) channels)))
 
 (defn create-channel [auth guild-id channel-name & {:keys [type bitrate] :as params}]
   (discord-request :create-channel auth :args [guild-id] :json (assoc params :name channel-name)))
@@ -198,16 +257,16 @@
 (defn edit-channel [auth channel-id & {:keys [name topic bitrate position] :as params}]
   (discord-request :edit-channel auth :args [channel-id] :json params))
 
+(defn move-channel [auth channel-id new-position]
+  (edit-channel auth channel-id :position new-position))
+
 (defn delete-channel [auth channel-id]
   (discord-request :delete-channel auth :args [channel-id]))
 
-(defn move-channel [auth channel-id new-position]
-  (discord-request :move-channel auth :args [channel-id] :json {:position new-position}))
 
 ;;; Miscellaneous
 (defn send-typing [auth channel-id]
-  (let [{:keys [endpoint method]}   (get-endpoint :send-typing channel-id)]
-    (discord-request endpoint method auth)))
+  (discord-request :send-typing auth :args [channel-id]))
 
 (comment
   (require '[clojure.pprint :refer [pprint]])
