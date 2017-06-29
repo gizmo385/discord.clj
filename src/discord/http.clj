@@ -5,26 +5,12 @@
             [clojure.string :as s]
             [swiss.arrows :refer [-<> -<>>]]
             [discord.config :as config]
-            [discord.types :as types]
+            [discord.types :refer [Authenticated] :as types]
             [discord.utils :as utils]))
 
 ;;; Global constants for interacting with the API
 (defonce user-agent "DiscordBot (https://github.com/gizmo385/discord.clj)")
 (defonce discord-url "https://discordapp.com/api/v6")
-
-;;; Defining an authentication protocol for interaction with the API
-(defprotocol Authenticated
-  (token [this])
-  (token-type [this]))
-
-(defn build-auth-string [auth]
-  (format "%s %s" (token-type auth)  (token auth)))
-
-;;; Stub the authentication protocol with a local token for testing
-(defrecord BotStub []
-  Authenticated
-  (token [_] (config/get-token))
-  (token-type [_] "Bot"))
 
 ;;; Defining all of the Discord API endpoints (there's a lot of em)
 (defrecord Route [endpoint method])
@@ -98,6 +84,8 @@
 
    ;; Miscellaneous
    :send-typing         (Route. "/channels/%s/typing" :post)
+   :get-gateway         (Route. "/gateway" :get)
+   :get-bot-gateway     (Route. "/gateway/bot" :get)
    :application-info    (Route. "/oauth2/applications/@me" :get)})
 
 (defn get-endpoint [endpoint-key & args]
@@ -109,7 +97,7 @@
 (defn- build-request [endpoint method auth json params]
   (let  [url      (str discord-url endpoint)
          headers  {:User-Agent user-agent
-                   :Authorization (build-auth-string auth)}
+                   :Authorization (types/build-auth-string auth)}
          request  {:headers headers
                    :url url
                    :method method}]
@@ -143,7 +131,7 @@
       200 (-<> result
                (:body)
                (json/read-str :key-fn keyword)
-                (map constructor <>))
+               (map constructor <>))
       204 true
       result)))
 
@@ -199,9 +187,18 @@
   (if-let [servers (get-servers auth)]
     (filter #(= server-name (:name %1)) servers)))
 
+(defn create-server [auth server-name icon region]
+  (discord-request :create-server auth :json {:name server-name :icon icon :region region}
+                   :constructor types/build-server))
+
 (defn edit-server [auth guild-id & {:keys [name region] :as params}]
   (discord-request :edit-server auth :args [guild-id] :json params))
 
+(defn delete-server [auth guild-id]
+  (discord-request :delete-server auth :args [guild-id]))
+
+
+;;; Server member management
 (defn list-members [auth guild-id & {:keys [limit after] :as params}]
   (discord-request :list-members auth :args [guild-id] :params params
                    :constructor types/build-user))
@@ -210,7 +207,12 @@
   (let [members (list-members auth guild-id)]
     (filter (fn [member] (= member-name (-> member :user :username))) members)))
 
-;;; Server member management
+(defn get-member [auth guild-id user-id]
+  (discord-request :get-member auth :args [guild-id user-id] :constructor types/build-user))
+
+(defn edit-member [auth guild-id user-id & {:keys [nick roles mute deaf channel_id] :as params}]
+  (discord-request :edit-member auth :args [guild-id user-id] :json params))
+
 (defn kick [auth guild-id user-id]
   (discord-request :kick auth :args [guild-id user-id]))
 
@@ -220,15 +222,14 @@
 (defn unban [auth guild-id user-id]
   (discord-request :unban auth :args [guild-id user-id]))
 
-(defn get-member [auth guild-id user-id]
-  (discord-request :get-member auth :args [guild-id user-id] :constructor types/build-user))
-
-(defn edit-member [auth guild-id user-id & {:keys [nick roles mute deaf channel_id] :as params}]
-  (discord-request :edit-member auth :args [guild-id user-id] :json params))
-
 (defn update-nickname [auth guild-id nickname]
   (discord-request :update-nickname auth :args [guild-id] :json {:nick nickname}))
 
+(defn prune-members [auth guild-id days]
+  (discord-request :prune-members auth :args [guild-id] :json {:days days}))
+
+(defn estimate-prune-members [auth guild-id days]
+  (discord-request :prunable-members auth :args [guild-id] :params {:days days}))
 
 ;;; Current user management
 (defn edit-profile [auth & {:keys [username avatar] :as params}]
@@ -268,7 +269,19 @@
 (defn send-typing [auth channel-id]
   (discord-request :send-typing auth :args [channel-id]))
 
+(defn get-gateway [auth]
+  ;; We don't use the constructor here due to the strange response from get-gateway
+  (types/build-gateway (discord-request :get-gateway auth)))
+
+(defn get-bot-gateway [auth]
+  (types/build-gateway (discord-request :get-bot-gateway auth)))
+
 (comment
   (require '[clojure.pprint :refer [pprint]])
-  (pprint endpoint-mapping)
-  )
+  (defrecord BotStub []
+    Authenticated
+    (token [_] (config/get-token))
+    (token-type [_] "Bot"))
+
+  (get-bot-gateway (BotStub.))
+  (pprint endpoint-mapping))
