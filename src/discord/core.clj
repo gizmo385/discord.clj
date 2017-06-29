@@ -1,29 +1,22 @@
 (ns discord.core
-  (:require [discord.config :as config]
-            [discord.types :refer [Authenticated] :as types]
+  (:require [clojure.tools.logging :as log]
+            [discord.config :as config]
+            [discord.types :as types]
+            [discord.bot :as bot]
             [discord.gateway :as gw])
-  (:import [discord.types DiscordGateway])
+  (:import [discord.types ConfigurationAuth])
   (:gen-class))
 
-(extend-type DiscordGateway
-  Authenticated
-  (token [this]
-    (.token (:auth this)))
-  (token-type [this]
-    (.token-type (:auth this))))
+
+(defmulti message-handler
+  (fn [bot message] message))
+
+(defmethod message-handler :default
+  [bot message]
+  (log/info message))
 
 (defn -main
   "Spins up a new bot and reads messages from it"
   [& args]
-  (let [auth]
-    (let [gateway (gw/connect-to-gateway auth prn)]
-      (gw/send-identify gateway)
-      (prn gateway)
-      (try
-        (while true
-          (Thread/sleep 3000))
-        (finally (.close gateway))))))
-
-(comment
-  (gw/connect-to-gateway (DiscordBotClient.))
-  )
+  (with-open [discord-bot (bot/create-discord-bot message-handler)]
+    (while true (Thread/sleep 3000))))

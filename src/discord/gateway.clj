@@ -5,9 +5,23 @@
             [clojure.data.json :as json]
             [gniazdo.core :as ws]
             [discord.http :as http]
-            [discord.types :refer [Gateway] :as types]
+            [discord.types :refer [Authenticated Gateway] :as types]
             [discord.config :as config]
-            [clojure.pprint :refer [pprint]]))
+            [clojure.pprint :refer [pprint]])
+  (:import [discord.types DiscordGateway]))
+
+
+;;; Implementing Discord Gateway behaviour
+(extend-type DiscordGateway
+  Authenticated
+  (token [this]
+    (.token (:auth this)))
+  (token-type [this]
+    (.token-type (:auth this)))
+
+  Gateway
+  (send-message [this message]
+    (ws/send-msg (:websocket this) (json/write-str message))))
 
 ;;; The different kinds of messages that we can receive from Discord
 (defonce server-message-types
@@ -25,15 +39,36 @@
    :heartbeat_ack       11
    :guild_sync          12})
 
+
+;; TODO: HELLO message is NOT an event, thus the :t is nil. HANDLE seq-num for heartbeat
+
 (defmulti handle-server-message
   "Handle messages coming from Discord across the websocket"
-  (fn [discord-message receive-message-channel]
-    (:t discord-message)))
+  (fn [discord-message receive-message-channel seq-num-atom]
+    (keyword (:t discord-message))))
 
-;;; If a message type isn't recognized, pass it to the bot client handler
+(defmethod handle-server-message :HELLO
+  [discord-message receive-message-channel seq-num-atom]
+  (log/info "RECEIVED HELLO MESSAGE"))
+
+;;; If it's a user message, put it on the receive channel for parsing by the client
+(defmethod handle-server-message :MESSAGE_CREATE
+  [discord-message receive-message-channel seq-num-atom]
+  (let [message (types/build-message discord-message)]
+    (go (>! receive-message-channel message))))
+
+
+(defmethod handle-server-message :READY
+  [discord-message receive-message-channel seq-num-atom]
+  (log/info (format "READY: %s" (with-out-str (prn discord-message)))))
+
 (defmethod handle-server-message :default
   [discord-message receive-message-channel]
-  (>! receive-message-channel discord-message))
+  (if (:t discord-message)
+    (log/info
+      (format "Unknown message of type %s received by the client" (keyword (:t discord-message))))
+    (log/info
+      (format "Unknown message %s" discord-message))))
 
 
 ;;; Sending some of the standard messages to the Discord Gateway
@@ -54,24 +89,25 @@
                     :compress false
                     :large_threshold 250
                     :shard [0 (:shards gateway)]})]
-    (types/send-msg gateway identify)))
+    (types/send-message gateway identify)))
 
 ;;; Establishing a connection to the Discord gateway
 (defn connect-to-gateway
   "Attempts to connect to the discord Gateway using some supplied authentication source"
-  [auth receive-channel]
+  [auth receive-channel seq-num-atom]
   (let [gateway (http/get-bot-gateway auth)
         socket  (ws/connect (:url gateway)
                             :on-receive (fn [message]
                                           (-> message
                                               (json/read-str :key-fn keyword)
-                                              (handle-server-message receive-channel)))
+                                              (handle-server-message receive-channel seq-num-atom)))
                             :on-connect (fn [message]
-                                          (log/info "Connected to Discord Gateway"))
+                                          (log/info
+                                            (format "Connected to Discord Gateway: %s" message)))
                             :on-error   (fn [message]
                                           (log/error message))
                             :on-close   (fn [status reason]
-                                          (log/info "Closed: %s %d" reason status)))]
+                                          (log/info (format "Closed: %s (%d)" reason status))))]
     (assoc gateway
            :websocket socket
            :auth      auth)))

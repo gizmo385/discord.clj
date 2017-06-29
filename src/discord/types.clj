@@ -1,7 +1,9 @@
 (ns discord.types
   "Types returned from the Discord APIs and proper constructors to transform the API responses
    into the corresponding records"
-  (:require [discord.config :as config]))
+  (:require [discord.config :as config]
+            [clojure.data.json :as json]
+            [gniazdo.core :as ws]))
 
 ;;; General Discord protocols
 (defprotocol Authenticated
@@ -21,38 +23,18 @@
 
 ;;; Representing a Discord Gateway
 (defprotocol Gateway
-  (send-msg [this message]))
+  (send-message [this message]))
 
-(defrecord DiscordGateway [url shards handler websocket auth]
-  Authenticated
-  (token [this] (.token auth))
-  (token-type [this] (.token-type auth)))
+(defrecord DiscordGateway [url shards handler websocket auth])
 
-(defn build-gateway [gateway-response]
-  (map->DiscordGateway (into {} gateway-response)))
-
-
-(defprotocol DiscordBot
-  (send-message [this channel content & options]))
-
-;;; Representing a bot connected to the discord server
-(defrecord GeneralDiscordBot [auth gateway message-handler send-channel receive-channel]
-  Authenticated
-  (token [this]
-    (.token (:auth this)))
-  (token-type [this]
-    (.token-type (:auth this)))
-
-  Gateway
-  (send-msg [this message]
-    (.send-msg (:gateway this) message))
-  
-  (GeneralDiscordBot)
-  )
+(defn build-gateway [gateway-response api-version]
+  (let [gateway-map (into {} gateway-response)
+        url (format "%s?v=%s&encoding=%s" (:url gateway-map) api-version "json")]
+    (map->DiscordGateway (assoc gateway-map :url url))))
 
 
 ;;; Representing a Discord User
-(defrecord User [id username roles deaf mute avatar joined distriminator])
+(defrecord User [id username roles deaf mute avatar joined discriminator])
 
 (defn build-user [user-map]
   (map->User
@@ -94,6 +76,28 @@
      :owner?      (:owner server-map)
      :icon        (:icon server-map)
      :permissions (:permissions server-map)}))
+
+
+;;; Message
+(defrecord Message [content attachments embeds sent-time channel author user-mentions role-mentions
+                    pinned? everyone-mentioned? id])
+
+(defn build-message [message-map]
+  (let [user-wrap (fn [user-map] {:user user-map})
+        author    (build-user (user-wrap (get-in message-map [:d :author])))
+        users     (map (comp build-user user-wrap) (get-in message-map [:d :mentions]))
+        roles     (map (comp build-user user-wrap) (get-in message-map [:d :role_mentions]))]
+    (map->Message
+      {:author                author
+       :user-mentions         users
+       :role-mentions         roles
+       :channel               (get-in message-map [:d :channel_id])
+       :everyone-mentioned?   (get-in message-map [:d :mention_everyone])
+       :content               (get-in message-map [:d :content])
+       :embeds                (get-in message-map [:d :embeds])
+       :attachments           (get-in message-map [:d :attachments])
+       :pinned?               (get-in message-map [:d :pinned])
+       :id                    (get-in message-map [:d :id])})))
 
 ;;; Mapping the returns from the Discord API enumerated types into Clojure keywords
 (defonce channel-type

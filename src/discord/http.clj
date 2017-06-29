@@ -11,6 +11,7 @@
 ;;; Global constants for interacting with the API
 (defonce user-agent "DiscordBot (https://github.com/gizmo385/discord.clj)")
 (defonce discord-url "https://discordapp.com/api/v6")
+(defonce api-version 6)
 
 ;;; Defining all of the Discord API endpoints (there's a lot of em)
 (defrecord Route [endpoint method])
@@ -271,17 +272,7 @@
 
 (defn get-gateway [auth]
   ;; We don't use the constructor here due to the strange response from get-gateway
-  (types/build-gateway (discord-request :get-gateway auth)))
+  (types/build-gateway (discord-request :get-gateway auth) api-version))
 
 (defn get-bot-gateway [auth]
-  (types/build-gateway (discord-request :get-bot-gateway auth)))
-
-(comment
-  (require '[clojure.pprint :refer [pprint]])
-  (defrecord BotStub []
-    Authenticated
-    (token [_] (config/get-token))
-    (token-type [_] "Bot"))
-
-  (get-bot-gateway (BotStub.))
-  (pprint endpoint-mapping))
+  (types/build-gateway (discord-request :get-bot-gateway auth) api-version))
