@@ -10,7 +10,8 @@
   (send-message [this channel content options]))
 
 ;;; Representing a bot connected to the discord server
-(defrecord GeneralDiscordBot [auth gateway message-handler send-channel receive-channel seq-num]
+(defrecord GeneralDiscordBot [auth gateway message-handler send-channel receive-channel
+                              seq-num heartbeat-interval]
   Authenticated
   (token [this]
     (.token (:auth this)))
@@ -34,16 +35,14 @@
   ([auth message-handler]
    (let [send-channel       (async/chan)
          receive-channel    (async/chan)
-         seq-num            (atom nil)
-         gateway            (gw/connect-to-gateway auth receive-channel seq-num)
+         seq-num            (atom 0)
+         heartbeat-interval (atom nil)
+         gateway            (gw/connect-to-gateway auth receive-channel seq-num heartbeat-interval)
          bot                (GeneralDiscordBot. auth gateway message-handler send-channel
-                                                receive-channel seq-num)]
+                                                receive-channel seq-num heartbeat-interval)]
 
      ;; Send the identification message to Discord
      (gw/send-identify gateway)
-
-     ;; Send heartbeats to the server
-     (go-loop [])
 
      ;; Read messages coming from the server and pass them to the handler
      (go-loop []
@@ -60,4 +59,7 @@
          (do
            (send-message bot (:channel message) (:content message) (:options message))
            (recur))
-         (recur))))))
+         (recur)))
+
+     ;; Return the bot that we created
+     bot)))
