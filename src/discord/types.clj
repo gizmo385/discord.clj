@@ -25,7 +25,11 @@
 (defprotocol Gateway
   (send-message [this message]))
 
-(defrecord DiscordGateway [url shards handler websocket auth])
+(defrecord DiscordGateway [url shards handler websocket auth]
+  java.io.Closeable
+  (close [this]
+    (if (:websocket this)
+      (ws/close (:websocket this)))))
 
 (defn build-gateway [gateway-response api-version]
   (let [gateway-map (into {} gateway-response)
@@ -78,9 +82,14 @@
      :permissions (:permissions server-map)}))
 
 
-;;; Message
+;;; Representing a message from the API
 (defrecord Message [content attachments embeds sent-time channel author user-mentions role-mentions
                     pinned? everyone-mentioned? id])
+
+(defn convert-long [s]
+  (try
+    (Long/parseLong s)
+    (catch NumberFormatException nfe s)))
 
 (defn build-message [message-map]
   (let [user-wrap (fn [user-map] {:user user-map})
@@ -91,13 +100,13 @@
       {:author                author
        :user-mentions         users
        :role-mentions         roles
-       :channel               (get-in message-map [:d :channel_id])
+       :channel               (convert-long (get-in message-map [:d :channel_id]))
        :everyone-mentioned?   (get-in message-map [:d :mention_everyone])
        :content               (get-in message-map [:d :content])
        :embeds                (get-in message-map [:d :embeds])
        :attachments           (get-in message-map [:d :attachments])
        :pinned?               (get-in message-map [:d :pinned])
-       :id                    (get-in message-map [:d :id])})))
+       :id                    (convert-long (get-in message-map [:d :id]))})))
 
 ;;; Mapping the returns from the Discord API enumerated types into Clojure keywords
 (defonce channel-type

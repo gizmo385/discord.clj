@@ -5,19 +5,23 @@
 (defonce global-bot-settings "data/settings/settings.json")
 
 ;;; Saving, loading, and checking config files
-(defmulti config
-  "Manages the saving and loading of config files"
+(defmulti file-io
+  "Manages the saving and loading of file-io files"
   (fn [filename operation & {:keys [data]}]
     operation))
 
-(defmethod config :save [filename _ & {:keys [data]}]
+(defmethod file-io :save [filename _ & {:keys [data]}]
   (spit filename (json/write-str data)))
 
-(defmethod config :load [filename _]
+(defmethod file-io :load [filename _]
   (json/read-str (slurp filename) :key-fn keyword))
 
-(defmethod config :check [filename _]
+(defmethod file-io :check [filename _]
   (.exists (io/as-file filename)))
 
+
+(defn get-prefix []
+  (:prefix (file-io global-bot-settings :load)))
+
 (defn get-token []
-  (:token (config global-bot-settings :load)))
+  (:token (file-io global-bot-settings :load)))

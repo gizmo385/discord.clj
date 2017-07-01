@@ -4,7 +4,6 @@
             [clojure.data.json :as json]
             [clojure.string :as s]
             [swiss.arrows :refer [-<> -<>>]]
-            [discord.config :as config]
             [discord.types :refer [Authenticated] :as types]
             [discord.utils :as utils]))
 
@@ -42,6 +41,7 @@
    :edit-member         (Route. "/guilds/%s/members/%s" :patch)
 
    ;; Current user management
+   :get-current-user    (Route. "/users/@me" :get)
    :edit-profile        (Route. "/users/@me" :patch)
    :update-nickname     (Route. "/guilds/%s/members/@me/nick" :patch)
 
@@ -98,7 +98,8 @@
 (defn- build-request [endpoint method auth json params]
   (let  [url      (str discord-url endpoint)
          headers  {:User-Agent user-agent
-                   :Authorization (types/build-auth-string auth)}
+                   :Authorization (types/build-auth-string auth)
+                   :Accept "application/json"}
          request  {:headers headers
                    :url url
                    :method method}]
@@ -233,6 +234,10 @@
   (discord-request :prunable-members auth :args [guild-id] :params {:days days}))
 
 ;;; Current user management
+(defn get-current-user [auth]
+  ;; The response from /users/@me is a bit strange, so special parsing is needed
+  (types/map->User (into {} (discord-request :get-current-user auth))))
+
 (defn edit-profile [auth & {:keys [username avatar] :as params}]
   (discord-request :edit-profile auth :json params))
 

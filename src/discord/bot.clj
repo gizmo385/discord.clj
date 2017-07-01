@@ -1,65 +1,67 @@
 (ns discord.bot
-  (:require [clojure.core.async :refer [<! >! close! go go-loop] :as async]
+  (:require [clojure.string :refer [starts-with?] :as s]
+            [clojure.core.async :refer [go >!] :as async]
             [clojure.tools.logging :as log]
-            [discord.gateway :as gw]
-            [discord.http :as http]
-            [discord.types :refer [Authenticated Gateway] :as types])
+            [discord.client :as client]
+            [discord.config :as config]
+            [discord.types :as types])
   (:import [discord.types ConfigurationAuth]))
 
-(defprotocol DiscordBot
-  (send-message [this channel content options]))
-
-;;; Representing a bot connected to the discord server
-(defrecord GeneralDiscordBot [auth gateway message-handler send-channel receive-channel
-                              seq-num heartbeat-interval]
-  Authenticated
-  (token [this]
-    (.token (:auth this)))
-  (token-type [this]
-    (.token-type (:auth this)))
-
+(defrecord Extension [command handler])
+(defrecord DiscordBot [bot-name extensions prefix client]
   java.io.Closeable
   (close [this]
-    (.close gateway)
-    (close! send-channel)
-    (close! receive-channel))
+    (.close (:client this))))
 
-  DiscordBot
-  (send-message [this channel content options]
-    (http/send-message (:auth this) channel content options)))
+(defn ^:dynamic say
+  "The 'say' function does nothing unless invoked in the context of a build-handler-fn where it will
+   be locally overriden to send to the channel that the inciting message originated."
+  [message-content])
 
-(defn create-discord-bot
-  ([message-handler]
-   (create-discord-bot (ConfigurationAuth.) message-handler))
+(defn- in-extension-send-message
+  [send-channel channel content]
+  (go
+    (>! send-channel
+        {:channel channel
+         :content content
+         :options {}})))
 
-  ([auth message-handler]
-   (let [send-channel       (async/chan)
-         receive-channel    (async/chan)
-         seq-num            (atom 0)
-         heartbeat-interval (atom nil)
-         gateway            (gw/connect-to-gateway auth receive-channel seq-num heartbeat-interval)
-         bot                (GeneralDiscordBot. auth gateway message-handler send-channel
-                                                receive-channel seq-num heartbeat-interval)]
+(defn- build-handler-fn
+  "Builds a handler around a set of extensions and rebinds 'say' to send to the message source"
+  [send-channel prefix extensions]
+  ;; Builds a handler function for a bot that will dispatch messages matching the supplied prefix
+  ;; to the handlers of any extensions whose "command" is present immediately after the prefix
+  (fn [client message]
+    (log/info (format "Message: %s" (with-out-str (prn message))))
+    ;; This binding overwrites the 'say' function to respond to the inciting message.
+    (binding [say (partial in-extension-send-message send-channel (:channel message))]
+      (if (-> message :content (starts-with? prefix))
+        (doall
+          (for [{:keys [command handler]} extensions]
+            (let [command-string  (str prefix command)
+                  trimmed-content (-> message
+                                      :content
+                                      (s/replace-first command-string "")
+                                      (s/triml))]
+              (if (-> message :content (starts-with? command-string))
+                (handler client (assoc message :content trimmed-content))))))))))
 
-     ;; Send the identification message to Discord
-     (gw/send-identify gateway)
+(defn create-extension [command handler]
+  (Extension. command handler))
 
-     ;; Read messages coming from the server and pass them to the handler
-     (go-loop []
-       (if-let [message (<! receive-channel)]
-         (do
-           (message-handler bot message)
-           (recur))
-         (recur)))
+;;; Builds a bot based on a name and set of extensions
+(defn create-bot
+  "Creates a bot that will dynamically dispatch to different extensions based on <prefix><command>
+   style messages."
+  ([bot-name extensions]
+   (create-bot bot-name extensions (config/get-prefix) (ConfigurationAuth.)))
 
-     ;; Read messages from the send channel and call send-message on them. This allows for
-     ;; asynchronous messages sending
-     (go-loop []
-       (if-let [message (<! send-channel)]
-         (do
-           (send-message bot (:channel message) (:content message) (:options message))
-           (recur))
-         (recur)))
+  ([bot-name extensions prefix]
+   (create-bot bot-name extensions prefix (ConfigurationAuth.)))
 
-     ;; Return the bot that we created
-     bot)))
+  ([bot-name extensions prefix auth]
+   (let [send-channel     (async/chan)
+         handler          (build-handler-fn send-channel prefix extensions)
+         discord-client   (client/create-discord-client auth handler :send-channel send-channel)]
+     (log/info (format "Creating bot with prefix: %s" prefix))
+     (DiscordBot. bot-name extensions prefix discord-client))))
