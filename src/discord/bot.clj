@@ -26,25 +26,24 @@
          :content content
          :options {}})))
 
+(defn trim-message-command [message command]
+  (assoc message :content (-> message :content (s/replace-first command "") s/triml)))
+
 (defn- build-handler-fn
   "Builds a handler around a set of extensions and rebinds 'say' to send to the message source"
   [send-channel prefix extensions]
   ;; Builds a handler function for a bot that will dispatch messages matching the supplied prefix
   ;; to the handlers of any extensions whose "command" is present immediately after the prefix
   (fn [client message]
-    (log/info (format "Message: %s" (with-out-str (prn message))))
     ;; This binding overwrites the 'say' function to respond to the inciting message.
     (binding [say (partial in-extension-send-message send-channel (:channel message))]
       (if (-> message :content (starts-with? prefix))
         (doall
           (for [{:keys [command handler]} extensions]
-            (let [command-string  (str prefix command)
-                  trimmed-content (-> message
-                                      :content
-                                      (s/replace-first command-string "")
-                                      (s/triml))]
+            (let [command-string  (str prefix command)]
               (if (-> message :content (starts-with? command-string))
-                (handler client (assoc message :content trimmed-content))))))))))
+                ;; Overwrite the message content with the message without the initial command
+                (handler client (trim-message-command message command-string))))))))))
 
 (defn create-extension [command handler]
   (Extension. command handler))

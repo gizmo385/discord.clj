@@ -10,7 +10,6 @@
 
 (defn say-cog
   [client message]
-  (log/info (format "Say function %s" say))
   (say (:content message)))
 
 (defn -main
@@ -18,5 +17,4 @@
   [& args]
   (let [say-cog (bot/create-extension "say" say-cog)]
     (with-open [discord-bot (bot/create-bot "TestBot" [say-cog] "^")]
-      (log/info (format "Bot: %s" (with-out-str (prn discord-bot))))
       (while true (Thread/sleep 3000)))))

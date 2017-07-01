@@ -49,22 +49,14 @@
          client             (GeneralDiscordClient. auth gateway message-handler send-channel
                                                    receive-channel seq-num heartbeat-interval)]
 
-     (log/info (format "Current user: %s" (with-out-str (prn current-user))))
-
      ;; Send the identification message to Discord
      (gw/send-identify gateway)
 
      ;; Read messages coming from the server and pass them to the handler
      (go-loop []
        (if-let [message (<! receive-channel)]
-         (do
-           (log/info (format "Comparing %s (%s) to %s (%s)"
-                             (-> message :author :id)
-                             (type (-> message :author :id))
-                             (:id current-user)
-                             (type (:id current-user))))
-           (if (not= (-> message :author :id) (:id current-user)) (do
-               (message-handler client message)))))
+         (if (not= (-> message :author :id) (:id current-user))
+           (message-handler client message)))
        (recur))
 
      ;; Read messages from the send channel and call send-message on them. This allows for

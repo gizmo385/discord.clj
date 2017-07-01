@@ -49,9 +49,9 @@
   (fn [discord-event receive-chan seq-num heartbeat-interval]
     (message-code->name (:op discord-event))))
 
-;;; Handle the initial "HELLO" message
 (defmethod handle-server-event :hello
   [discord-event receive-chan seq-num heartbeat-interval]
+  ;;; Handle the initial "HELLO" message, which sets the heartbeat-interval
   (let  [new-heartbeat (get-in discord-event [:d :heartbeat_interval])]
     (log/info (format "Setting heartbeat interval to %d milliseconds" new-heartbeat))
     (reset! heartbeat-interval new-heartbeat)))
@@ -61,14 +61,15 @@
 
 (defmethod handle-server-event :default
   [discord-event receive-chan seq-num heartbeat-interval]
-  (log/info
-    (format "Event of Type: %s" (message-code->name (:op discord-event)))))
+  (log/info (format "Event of Type: %s" (message-code->name (:op discord-event)))))
 
 ;;; Handle messages from the server
 (defmulti handle-server-message
   "Handle messages coming from Discord across the websocket"
   (fn [discord-message receive-chan seq-num heartbeat-interval]
     (keyword (:t discord-message))))
+
+(defmethod handle-server-message :READY [& _])
 
 (defmethod handle-server-message :HELLO
   [discord-message receive-chan seq-num _]
@@ -80,10 +81,6 @@
   (let [message (types/build-message discord-message)]
     (go (>! receive-chan message))))
 
-(defmethod handle-server-message :READY
-  [discord-message receive-chan seq-num _]
-  (log/info (format "READY: %s" (with-out-str (prn discord-message)))))
-
 (defmethod handle-server-message nil
   [discord-message receive-chan seq-num heartbeat-interval]
   ;; A message type of "nil" the message is an event that is handle differently
@@ -91,11 +88,7 @@
 
 (defmethod handle-server-message :default
   [discord-message receive-chan seq-num _]
-  (if (:t discord-message)
-    (log/info
-      (format "Unknown message of type %s received by the client" (keyword (:t discord-message))))
-    (log/info
-      (format "Unknown message %s" discord-message))))
+  (log/info (format "Unknown message of type %s received: " (keyword (:t discord-message)))))
 
 
 ;;; Sending some of the standard messages to the Discord Gateway
@@ -156,12 +149,9 @@
     (:url gateway)
     :on-receive (fn [message]
                   (handle-message message gateway receive-channel seq-num heartbeat-interval))
-    :on-connect (fn [message]
-                  (log/info "Connected to Discord Gateway"))
-    :on-error   (fn [message]
-                  (log/error (format "Error: %s" message)))
-    :on-close   (fn [status reason]
-                  (log/info (format "Closed: %s (%d)" reason status)))))
+    :on-connect (fn [message] (log/info "Connected to Discord Gateway"))
+    :on-error   (fn [message] (log/error (format "Error: %s" message)))
+    :on-close   (fn [status reason] (log/info (format "Closed: %s (%d)" reason status)))))
 
 (defn connect-to-gateway
   "Attempts to connect to the discord Gateway using some supplied authentication source
