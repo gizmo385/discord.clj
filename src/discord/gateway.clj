@@ -46,11 +46,11 @@
 
 ;;; Handle server message events
 (defmulti handle-server-event
-  (fn [discord-event receive-chan seq-num heartbeat-interval]
+  (fn [discord-event receive-chan heartbeat-interval]
     (message-code->name (:op discord-event))))
 
 (defmethod handle-server-event :hello
-  [discord-event receive-chan seq-num heartbeat-interval]
+  [discord-event receive-chan heartbeat-interval]
   ;;; Handle the initial "HELLO" message, which sets the heartbeat-interval
   (let  [new-heartbeat (get-in discord-event [:d :heartbeat_interval])]
     (log/info (format "Setting heartbeat interval to %d milliseconds" new-heartbeat))
@@ -60,34 +60,38 @@
 (defmethod handle-server-event :heartbeat-ack [& _])
 
 (defmethod handle-server-event :default
-  [discord-event receive-chan seq-num heartbeat-interval]
+  [discord-event receive-chan heartbeat-interval]
   (log/info (format "Event of Type: %s" (message-code->name (:op discord-event)))))
 
 ;;; Handle messages from the server
 (defmulti handle-server-message
   "Handle messages coming from Discord across the websocket"
-  (fn [discord-message receive-chan seq-num heartbeat-interval]
+  (fn [discord-message receive-chan heartbeat-interval]
     (keyword (:t discord-message))))
 
 (defmethod handle-server-message :READY [& _])
+(defmethod handle-server-message :PRESENCE_UPDATE [& _])
+(defmethod handle-server-message :GUILD_CREATE [& _])
+(defmethod handle-server-message :TYPING_START [& _])
+(defmethod handle-server-message :MESSAGE_DELETE [& _])
 
 (defmethod handle-server-message :HELLO
-  [discord-message receive-chan seq-num _]
+  [discord-message receive-chan _]
   (log/info "RECEIVED HELLO MESSAGE"))
 
 ;;; If it's a user message, put it on the receive channel for parsing by the client
 (defmethod handle-server-message :MESSAGE_CREATE
-  [discord-message receive-chan seq-num _]
+  [discord-message receive-chan _]
   (let [message (types/build-message discord-message)]
     (go (>! receive-chan message))))
 
 (defmethod handle-server-message nil
-  [discord-message receive-chan seq-num heartbeat-interval]
+  [discord-message receive-chan heartbeat-interval]
   ;; A message type of "nil" the message is an event that is handle differently
-  (handle-server-event discord-message receive-chan seq-num heartbeat-interval))
+  (handle-server-event discord-message receive-chan heartbeat-interval))
 
 (defmethod handle-server-message :default
-  [discord-message receive-chan seq-num _]
+  [discord-message receive-chan _]
   (log/info (format "Unknown message of type %s received: " (keyword (:t discord-message)))))
 
 
@@ -122,7 +126,6 @@
     (types/send-message gateway heartbeat)))
 
 
-
 ;;; Establishing a connection to the Discord gateway
 (defn- handle-message
   "Parses a message coming from the server.
@@ -140,7 +143,7 @@
         (swap! seq-num max next-sequence-number))
 
       ;; Pass the message on to the handler
-      (handle-server-message message receive-channel seq-num heartbeat-interval)))
+      (handle-server-message message receive-channel heartbeat-interval)))
 
 (defn- create-websocket
   "Creates websocket and connects to the Discord gateway."

@@ -56,7 +56,9 @@
      (go-loop []
        (if-let [message (<! receive-channel)]
          (if (not= (-> message :author :id) (:id current-user))
-           (message-handler client message)))
+           (try
+             (message-handler client message)
+             (catch Exception e (log/error e)))))
        (recur))
 
      ;; Read messages from the send channel and call send-message on them. This allows for
