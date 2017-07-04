@@ -32,27 +32,36 @@
   [send-channel channel content]
   (go (>! send-channel {:channel channel :content content :options {}})))
 
+;;; Bot extension handling
+(defn- send-general-help-message
+  [client extensions])
+
+(defn- dispatch-to-handlers
+  "Dispatches to relevant function handlers when the the messages starts with <prefix><command>."
+  [client message prefix extensions]
+  (for [{:keys [command handler] :as ext} extensions
+        :let  [command-string (str prefix command)]
+        :when (starts-with? (:content message) command-string)]
+    (handler client (trim-message-command message command-string))))
+
 (defn- build-handler-fn
   "Builds a handler around a set of extensions and rebinds 'say' to send to the message source"
-  [send-channel prefix extensions]
+  [prefix extensions]
   ;; Builds a handler function for a bot that will dispatch messages matching the supplied prefix
   ;; to the handlers of any extensions whose "command" is present immediately after the prefix
   (fn [client message]
     ;; First we'll overwrite all of the dynamic functions
-    (binding [say     (partial say* send-channel (:channel message))
+    (binding [say     (partial say* (:send-channel client) (:channel message))
               delete  (partial http/delete-message client (:channel message))]
       (if (-> message :content (starts-with? prefix))
-        (doall
-          (for [{:keys [command handler] :as ext} extensions
-                :let [command-string (str prefix command)]]
-            (if (-> message :content (starts-with? command-string))
-              ;; Overwrite the message content with the message without the initial command
-              (handler client (trim-message-command message command-string)))))))))
+        (if (empty? (dispatch-to-handlers client message prefix extensions))
+          (send-general-help-message client extensions))))))
 
+
+;;; Builds a bot based on a name and set of extensions
 (defn create-extension [command handler]
   (Extension. command handler))
 
-;;; Builds a bot based on a name and set of extensions
 (defn create-bot
   "Creates a bot that will dynamically dispatch to different extensions based on <prefix><command>
    style messages."
@@ -63,21 +72,20 @@
    (create-bot bot-name extensions prefix (ConfigurationAuth.)))
 
   ([bot-name extensions prefix auth]
-   (let [send-channel     (async/chan)
-         handler          (build-handler-fn send-channel prefix extensions)
-         discord-client   (client/create-discord-client auth handler :send-channel send-channel)]
+   (let [handler          (build-handler-fn prefix extensions)
+         discord-client   (client/create-discord-client auth handler)]
      (log/info (format "Creating bot with prefix: %s" prefix))
      (DiscordBot. bot-name extensions prefix discord-client))))
 
 
 ;;; Macros to simplify bot creation
-(defn- build-extensions [fn-key fn-body]
-  `(Extension. (name ~fn-key) ~fn-body))
+(defn build-extensions
+  ([fn-key fn-body]
+   `(Extension. (name ~fn-key) ~fn-body))
+  ([key-func-pairs]
+   (into [] (map (partial apply build-extensions)
+                 (partition 2 key-func-pairs)))))
 
 (defmacro open-with-cogs [bot-name prefix & key-func-pairs]
-  `(with-open [discord-bot# (create-bot
-                              ~bot-name
-                              ~(into [] (map (partial apply build-extensions)
-                                             (partition 2 key-func-pairs)))
-                              ~prefix)]
+  `(with-open [discord-bot# (create-bot ~bot-name ~(build-extensions key-func-pairs) ~prefix)]
      (while true (Thread/sleep 3000))))

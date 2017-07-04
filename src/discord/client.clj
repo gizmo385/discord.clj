@@ -1,9 +1,9 @@
 (ns discord.client
   (:require [clojure.core.async :refer [<! >! close! go go-loop] :as async]
             [clojure.tools.logging :as log]
-            [discord.gateway :as gw]
+            [discord.gateway :refer [Gateway] :as gw]
             [discord.http :as http]
-            [discord.types :refer [Authenticated Gateway] :as types])
+            [discord.types :refer [Authenticated] :as types])
   (:import [discord.types ConfigurationAuth]))
 
 (defprotocol DiscordClient
@@ -14,9 +14,9 @@
                                  seq-num heartbeat-interval]
   Authenticated
   (token [this]
-    (.token (:auth this)))
+    (types/token (:auth this)))
   (token-type [this]
-    (.token-type (:auth this)))
+    (types/token-type (:auth this)))
 
   java.io.Closeable
   (close [this]

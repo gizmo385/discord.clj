@@ -8,22 +8,65 @@
             [gniazdo.core :as ws]
             [swiss.arrows :refer [-<> -<>>]]
             [discord.http :as http]
-            [discord.types :refer [Authenticated Gateway] :as types]
-            [discord.config :as config])
-  (:import [discord.types DiscordGateway]))
+            [discord.types :refer [Authenticated] :as types]
+            [discord.config :as config]))
 
+;;; Representing a message from the API
+(defrecord Message [content attachments embeds sent-time channel author user-mentions role-mentions
+                    pinned? everyone-mentioned? id])
+
+(defn- convert-long [s]
+  (try
+    (Long/parseLong s)
+    (catch NumberFormatException nfe s)))
+
+(defn build-message
+  "Builds a Message record based on the incoming Message from the Discord Gateway. The Gateway
+   record that received the message is passed as the second argument to this function."
+  [message-map gateway]
+  (log/info (format "Message: %s" (with-out-str (pprint message-map))))
+  (let [user-wrap (fn [user-map] {:user user-map})
+        author    (http/build-user (user-wrap (get-in message-map [:d :author])))
+        channel   (http/get-channel gateway (get-in message-map [:d :channel_id]))
+        users     (map (comp http/build-user user-wrap) (get-in message-map [:d :mentions]))
+        roles     (map (comp http/build-user user-wrap) (get-in message-map [:d :role_mentions]))]
+    (map->Message
+      {:author                author
+       :user-mentions         users
+       :role-mentions         roles
+       :channel               channel
+       :everyone-mentioned?   (get-in message-map [:d :mention_everyone])
+       :content               (get-in message-map [:d :content])
+       :embeds                (get-in message-map [:d :embeds])
+       :attachments           (get-in message-map [:d :attachments])
+       :pinned?               (get-in message-map [:d :pinned])
+       :id                    (convert-long (get-in message-map [:d :id]))})))
 
 ;;; Implementing Discord Gateway behaviour
-(extend-type DiscordGateway
+(defprotocol Gateway
+  (send-message [this message]))
+
+(defrecord DiscordGateway [url shards websocket auth]
+  java.io.Closeable
+  (close [this]
+    (if (:websocket this)
+      (ws/close (:websocket this))))
+
   Authenticated
   (token [this]
-    (.token (:auth this)))
+    (types/token (:auth this)))
   (token-type [this]
-    (.token-type (:auth this)))
+     (types/token-type (:auth this)))
 
   Gateway
   (send-message [this message]
     (ws/send-msg (:websocket this) (json/write-str message))))
+
+(defn build-gateway [gateway-response]
+  (let [gateway-map (into {} gateway-response)
+        url (format "%s?v=%s&encoding=%s" (:url gateway-map) types/api-version "json")]
+    (map->DiscordGateway (assoc gateway-map :url url))))
+
 
 ;;; The different kinds of messages that we can receive from Discord
 (defonce message-name->code
@@ -46,11 +89,11 @@
 
 ;;; Handle server message events
 (defmulti handle-server-event
-  (fn [discord-event receive-chan heartbeat-interval]
+  (fn [discord-event gateway receive-chan heartbeat-interval]
     (message-code->name (:op discord-event))))
 
 (defmethod handle-server-event :hello
-  [discord-event receive-chan heartbeat-interval]
+  [discord-event gateway receive-chan heartbeat-interval]
   ;;; Handle the initial "HELLO" message, which sets the heartbeat-interval
   (let  [new-heartbeat (get-in discord-event [:d :heartbeat_interval])]
     (log/info (format "Setting heartbeat interval to %d milliseconds" new-heartbeat))
@@ -60,13 +103,13 @@
 (defmethod handle-server-event :heartbeat-ack [& _])
 
 (defmethod handle-server-event :default
-  [discord-event receive-chan heartbeat-interval]
+  [discord-event gateway receive-chan heartbeat-interval]
   (log/info (format "Event of Type: %s" (message-code->name (:op discord-event)))))
 
 ;;; Handle messages from the server
 (defmulti handle-server-message
   "Handle messages coming from Discord across the websocket"
-  (fn [discord-message receive-chan heartbeat-interval]
+  (fn [discord-message gateway receive-chan heartbeat-interval]
     (keyword (:t discord-message))))
 
 (defmethod handle-server-message :READY [& _])
@@ -76,22 +119,22 @@
 (defmethod handle-server-message :MESSAGE_DELETE [& _])
 
 (defmethod handle-server-message :HELLO
-  [discord-message receive-chan _]
+  [discord-message gateway receive-chan _]
   (log/info "RECEIVED HELLO MESSAGE"))
 
 ;;; If it's a user message, put it on the receive channel for parsing by the client
 (defmethod handle-server-message :MESSAGE_CREATE
-  [discord-message receive-chan _]
-  (let [message (types/build-message discord-message)]
+  [discord-message gateway receive-chan _]
+  (let [message (build-message discord-message gateway)]
     (go (>! receive-chan message))))
 
 (defmethod handle-server-message nil
-  [discord-message receive-chan heartbeat-interval]
+  [discord-message gateway receive-chan heartbeat-interval]
   ;; A message type of "nil" the message is an event that is handle differently
-  (handle-server-event discord-message receive-chan heartbeat-interval))
+  (handle-server-event discord-message gateway receive-chan heartbeat-interval))
 
 (defmethod handle-server-message :default
-  [discord-message receive-chan _]
+  [discord-message gateway receive-chan _]
   (log/info (format "Unknown message of type %s received: " (keyword (:t discord-message)))))
 
 
@@ -119,11 +162,11 @@
                     :compress false
                     :large_threshold 250
                     :shard [0 (:shards gateway)]})]
-    (types/send-message gateway identify)))
+    (send-message gateway identify)))
 
 (defn send-heartbeat [gateway seq-num]
   (let [heartbeat (format-gateway-message :heartbeat @seq-num)]
-    (types/send-message gateway heartbeat)))
+    (send-message gateway heartbeat)))
 
 
 ;;; Establishing a connection to the Discord gateway
@@ -143,7 +186,7 @@
         (swap! seq-num max next-sequence-number))
 
       ;; Pass the message on to the handler
-      (handle-server-message message receive-channel heartbeat-interval)))
+      (handle-server-message message gateway receive-channel heartbeat-interval)))
 
 (defn- create-websocket
   "Creates websocket and connects to the Discord gateway."
@@ -169,11 +212,10 @@
    heartbeat-interval : (Atom Integer?) -- An atomic integer representing the current heartbeat
       interval dictated by the Discord Gateway upon connection."
   [auth receive-channel seq-num heartbeat-interval]
-  (let [gateway (http/get-bot-gateway auth)
+  (let [gateway (build-gateway (http/get-bot-gateway auth))
+        gateway (assoc gateway :auth auth)
         socket  (create-websocket gateway receive-channel seq-num heartbeat-interval)
-        gateway (assoc gateway
-                       :websocket socket
-                       :auth      auth)]
+        gateway (assoc gateway :websocket socket)]
 
     ;; Asynchronously send a heartbeat to the gateway
     (go-loop []
