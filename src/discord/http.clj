@@ -290,7 +290,7 @@
 
 ;;; Interacting with channels
 (defn get-channel [auth channel-id]
-  (discord-request :get-channel auth :args [channel-id]))
+  (build-channel (into {} (discord-request :get-channel auth :args [channel-id]))))
 
 (defn get-guild-channels [auth guild-id]
   (discord-request :get-guild-channels auth :args [guild-id] :constructor build-channel))
@@ -331,10 +331,3 @@
 
 (defn get-bot-gateway [auth]
   (discord-request :get-bot-gateway auth))
-
-(comment
-  (import '[discord.types ConfigurationAuth])
-  (require '[clojure.pprint :refer [pprint]])
-  (let [auth  (ConfigurationAuth.)]
-    (pprint (get-channel auth 328324837963464705)))
-  )
