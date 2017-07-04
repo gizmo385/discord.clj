@@ -1,34 +1,30 @@
 (ns discord.core
   (:require [clojure.tools.logging :as log]
             [clojure.string :as s]
-            [discord.config :as config]
             [discord.bot :refer [say delete] :as bot]
-            [discord.http :as http]
-            [discord.gateway :as gw])
-  (:import [discord.types ConfigurationAuth])
+            [discord.utils :as utils]
+            [discord.http :as http])
   (:gen-class))
 
-(defmulti admin-cog
-  (fn [client message]
-    (-> message :content (s/split #"\s+") (first))))
+;;; Example Cog implementation for admin commands
+(bot/defcog admin-cog)
 
 (defmethod admin-cog "kick"
   [client message]
-  (log/info (format "Users: %s" (with-out-str (prn (:user-mentions message)))))
-  (log/info (format "Message: %s" (with-out-str (prn message))))
-  (doall
-    (for [user  (:user-mentions message)
-          :let  [user-id (:id user)
-                 guild-id (get-in message [:channel :guild-id] message)]]
-      (do
-        (log/info (format "User ID: %s" user-id))
-        (log/info (format "Guild ID: %s" guild-id))
-        (log/info (format "Attempting to kick: %s" (with-out-str (prn user))))
-        (log/info (http/kick client guild-id user-id))))))
+  (doseq [user  (:user-mentions message)]
+    (let [user-id (:id user)
+          guild-id (get-in message [:channel :guild-id] message)]
+      (http/kick client guild-id user-id))))
 
-(defmethod admin-cog :default
-  [_ message]
-  (say (format "Unrecognized command: %s" (:content message))))
+(defmethod admin-cog "broadcast"
+  [client message]
+  (let [message-to-broadcast (->> message :content utils/words rest (s/join " "))
+        servers (http/get-servers client)]
+    (doseq [server servers]
+      (http/send-message client (:id server) message-to-broadcast))))
+
+;;; Other cog
+(bot/defcog other-cog)
 
 (defn -main
   "Spins up a new client and reads messages from it"

@@ -3,9 +3,10 @@
             [clojure.core.async :refer [go >!] :as async]
             [clojure.tools.logging :as log]
             [discord.client :as client]
-            [discord.http :as http]
             [discord.config :as config]
-            [discord.types :as types])
+            [discord.http :as http]
+            [discord.types :as types]
+            [discord.utils :as utils])
   (:import [discord.types ConfigurationAuth]))
 
 ;;; Defining what an Extension and a Bot is
@@ -39,10 +40,10 @@
 (defn- dispatch-to-handlers
   "Dispatches to relevant function handlers when the the messages starts with <prefix><command>."
   [client message prefix extensions]
-  (for [{:keys [command handler] :as ext} extensions
-        :let  [command-string (str prefix command)]
-        :when (starts-with? (:content message) command-string)]
-    (handler client (trim-message-command message command-string))))
+  (doseq [{:keys [command handler] :as ext} extensions]
+    (let [command-string (str prefix command)]
+      (if (starts-with? (:content message) command-string)
+        (handler client (trim-message-command message command-string))))))
 
 (defn- build-handler-fn
   "Builds a handler around a set of extensions and rebinds 'say' to send to the message source"
@@ -86,6 +87,24 @@
    (into [] (map (partial apply build-extensions)
                  (partition 2 key-func-pairs)))))
 
-(defmacro open-with-cogs [bot-name prefix & key-func-pairs]
+(defmacro open-with-cogs
+  "Given a name, prefix and series of :keyword-function pairs, builds a new bot inside of a
+   with-open block that will sleep the while background threads manage the bot."
+  [bot-name prefix & key-func-pairs]
   `(with-open [discord-bot# (create-bot ~bot-name ~(build-extensions key-func-pairs) ~prefix)]
      (while true (Thread/sleep 3000))))
+
+(defmacro defcog
+  "Defines a multi-method with the supplied name with a 2-arity dispatch function which dispatches
+   based upon the first word in the message. It also defines a :default which responds back with an
+   error."
+  [cog-name]
+  `(do
+     (defmulti ~cog-name
+       (fn [client# message#]
+         (-> message# :content utils/words first)))
+
+     (defmethod ~cog-name :default [_# message#]
+       (say (format "Unrecognized command for %s: %s"
+                    ~(name cog-name)
+                    (-> message# :content utils/words first))))))
