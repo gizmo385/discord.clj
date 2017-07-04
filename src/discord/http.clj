@@ -174,15 +174,17 @@
    :constructor f - A function which is mapped over API responses to create appropriate Records."
   [endpoint-key auth & {:keys [json params args constructor] :or {constructor identity}}]
   (let [{:keys [endpoint method]} (apply get-endpoint endpoint-key args)
-        request                   (build-request endpoint method auth json params)
-        result                    (client/request request)]
-    (condp = (:status result)
-      200 (-<> result
-               (:body <>)
-               (json/read-str <> :key-fn keyword)
-               (map constructor <>))
-      204 true
-      result)))
+        request                   (build-request endpoint method auth json params)]
+    (try
+      (let [result (client/request request)]
+        (condp = (:status result)
+          200 (-<> result
+                   (:body <>)
+                   (json/read-str <> :key-fn keyword)
+                   (map constructor <>))
+          204 true
+          result))
+      (catch Exception e (log/error e)))))
 
 ;;; Managing messages
 (defn send-message [auth channel-id content & {:keys [tts embed]}]
