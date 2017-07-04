@@ -31,29 +31,25 @@ $ lein run
 Here is a dead-simple bot you can create using discord.clj:
 
 ```Clojure
-(ns bot.core
-  (:require [clojure.tools.logging :as log]
-            [discord.config :as config]
-            [discord.types :as types]
-            [discord.bot :as bot]
-            [discord.gateway :as gw])
-  (:import [discord.types ConfigurationAuth])
+(ns example.bot
+  (:require [discord.bot :refer [say delete] :as bot]
+            [discord.http :as http])
   (:gen-class))
 
 
-(defmulti message-handler
-  (fn [bot message] message))
-
-(defmethod message-handler :default
-  [bot message]
-  (log/info message))
-
 (defn -main
-  "Spins up a new bot and reads messages from it"
+  "Spins up a new client and reads messages from it"
   [& args]
-  (with-open [discord-bot (bot/create-discord-bot message-handler)]
-    (while true (Thread/sleep 3000))))
-
+  (bot/open-with-cogs
+    "ExampleBot" "^"
+    :say    (fn [client message]
+              (say (:content message)))
+    :botsay (fn [client message]
+              (say (:content message))
+              (delete message))
+    :greet  (fn [_ _]
+              (say "HELLO EVERYONE"))
+    :admin  admin-cog))
 ```
 
 ## License
