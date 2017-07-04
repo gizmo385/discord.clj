@@ -24,7 +24,6 @@
   "Builds a Message record based on the incoming Message from the Discord Gateway. The Gateway
    record that received the message is passed as the second argument to this function."
   [message-map gateway]
-  (log/info (format "Message: %s" (with-out-str (pprint message-map))))
   (let [user-wrap (fn [user-map] {:user user-map})
         author    (http/build-user (user-wrap (get-in message-map [:d :author])))
         channel   (http/get-channel gateway (get-in message-map [:d :channel_id]))
