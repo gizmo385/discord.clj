@@ -55,8 +55,7 @@
     (binding [say     (partial say* (:send-channel client) (:channel message))
               delete  (partial http/delete-message client (:channel message))]
       (if (-> message :content (starts-with? prefix))
-        (if (empty? (dispatch-to-handlers client message prefix extensions))
-          (send-general-help-message client extensions))))))
+        (dispatch-to-handlers client message prefix extensions)))))
 
 
 ;;; Builds a bot based on a name and set of extensions
