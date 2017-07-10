@@ -93,17 +93,49 @@
   `(with-open [discord-bot# (create-bot ~bot-name ~(build-extensions key-func-pairs) ~prefix)]
      (while true (Thread/sleep 3000))))
 
+(defn- gen-cog-method [cog-name impl])
+
 (defmacro defcog
   "Defines a multi-method with the supplied name with a 2-arity dispatch function which dispatches
    based upon the first word in the message. It also defines a :default which responds back with an
-   error."
-  [cog-name]
+   error.
+
+   Example:
+   (defcog test-cog [client message]
+    (:say (say message))
+
+    (:greet (say \"Hello Everyone!\"))
+
+    (:kick
+      (doseq [user (:user-mentions message)]
+        (let [guild-id (get-in message [:channel :guild-id] message)]
+          (http/kick client guild-id user)))))
+
+   Arguments:
+    cog-name    :: String -- The name of the cog, and subsequent multi-method being defined.
+    arg-vector  :: Vector -- A 2-element vector defining the argument vector for the cog. The first
+                              argument is the client being passed to the message
+    impls       :: Forms  -- A sequence of lists, each representing a command implementation. The
+                              first argument to each implementation is a keyword representing the
+                              command being implemented
+   "
+  [cog-name [client-param message-param :as arg-vector] & impls]
+  ;; Verify that the argument vector supplied to defcog is a list of 2
+  {:pre [(or (= 2 (count arg-vector))
+             (throw (ex-info "Cog definition argument vector requires 2 items (client & message)."
+                             {:len (count arg-vector)})))]}
   `(do
+     ;; Define the multimethod
      (defmulti ~cog-name
        (fn [client# message#]
-         (-> message# :content utils/words first)))
+         (-> message# :content utils/words first keyword)))
 
+     ;; Supply a "default" error message responding back with an unknown command message
      (defmethod ~cog-name :default [_# message#]
        (say (format "Unrecognized command for %s: %s"
                     ~(name cog-name)
-                    (-> message# :content utils/words first))))))
+                    (-> message# :content utils/words first))))
+
+     ;; Build the implementation methods
+     ~@(for [[dispatch-val & body] impls]
+         `(defmethod ~cog-name ~dispatch-val [~client-param ~message-param] ~@body))))
