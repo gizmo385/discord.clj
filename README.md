@@ -37,27 +37,27 @@ Here is a dead-simple bot you can create using discord.clj:
   (:gen-class))
 
 ;;; Example Cog implementation for admin commands
-(bot/defcog admin-cog)
+(bot/defcog admin-cog [client message]
+  ;; Kicks all users mentioned in the messagj
+  (:kick
+    (doseq [user (:user-mentions message)]
+      (let [user-id (:id user)
+            guild-id (get-in message [:channel :guild-id] message)]
+        (http/kick client guild-id user-id))))
 
-(defmethod admin-cog "kick"
-  [client message]
-  (doseq [user  (:user-mentions message)]
-    (let [user-id (:id user)
-          guild-id (get-in message [:channel :guild-id] message)]
-      (http/kick client guild-id user-id))))
+  ;; Sends a message to all servers the bot is a part of
+  (:broadcast
+    (let [bcast-message (->> message :content utils/words rest (s/join " "))
+          servers (http/get-servers client)]
+      (doseq [server servers]
+        (http/send-message client server bcast-message)))))
 
-(defmethod admin-cog "broadcast"
-  [client message]
-  (let [message-to-broadcast (->> message :content utils/words rest (s/join " "))
-        servers (http/get-servers client)]
-    (doseq [server servers]
-      (http/send-message client (:id server) message-to-broadcast))))
 
 (defn -main
-  "Spins up a new client and reads messages from it"
+  "Creates a new discord bot and supplies a series of extensions to it."
   [& args]
   (bot/open-with-cogs
-    "ExampleBot" "^"
+    "TestDiscordBot" "^"
     :say    (fn [client message]
               (say (:content message)))
     :botsay (fn [client message]
