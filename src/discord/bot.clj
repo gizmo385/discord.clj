@@ -1,5 +1,6 @@
 (ns discord.bot
-  (:require [clojure.string :refer [starts-with?] :as s]
+  (:require [clojure.string :refer [starts-with? ends-with?] :as s]
+            [clojure.java.io :as io]
             [clojure.core.async :refer [go >!] :as async]
             [clojure.tools.logging :as log]
             [discord.client :as client]
@@ -8,6 +9,8 @@
             [discord.types :as types]
             [discord.utils :as utils])
   (:import [discord.types ConfigurationAuth]))
+
+(defonce global-cog-registry (atom {}))
 
 ;;; Defining what an Extension and a Bot is
 (defrecord Extension [command handler])
@@ -77,7 +80,6 @@
      (log/info (format "Creating bot with prefix: %s" prefix))
      (DiscordBot. bot-name extensions prefix discord-client))))
 
-
 ;;; Macros to simplify bot creation
 (defn build-extensions
   ([fn-key fn-body]
@@ -93,7 +95,10 @@
   `(with-open [discord-bot# (create-bot ~bot-name ~(build-extensions key-func-pairs) ~prefix)]
      (while true (Thread/sleep 3000))))
 
-(defn- gen-cog-method [cog-name impl])
+;;; Macros to simplify cog definitions
+(defn register-cog!
+  [cog-name cog-function]
+  (swap! global-cog-registry assoc cog-name cog-function))
 
 (defmacro defcog
   "Defines a multi-method with the supplied name with a 2-arity dispatch function which dispatches
@@ -117,18 +122,20 @@
                               argument is the client being passed to the message
     impls       :: Forms  -- A sequence of lists, each representing a command implementation. The
                               first argument to each implementation is a keyword representing the
-                              command being implemented
-   "
+                              command being implemented."
   [cog-name [client-param message-param :as arg-vector] & impls]
   ;; Verify that the argument vector supplied to defcog is a list of 2
   {:pre [(or (= 2 (count arg-vector))
              (throw (ex-info "Cog definition argument vector requires 2 items (client & message)."
-                             {:len (count arg-vector)})))]}
+                             {:len (count arg-vector) :curr arg-vector})))]}
   `(do
      ;; Define the multimethod
      (defmulti ~cog-name
        (fn [client# message#]
          (-> message# :content utils/words first keyword)))
+
+     ;; Register the cog with the global cog hierarchy
+     (register-cog! ~(keyword cog-name) ~cog-name)
 
      ;; Supply a "default" error message responding back with an unknown command message
      (defmethod ~cog-name :default [_# message#]
@@ -139,3 +146,15 @@
      ;; Build the implementation methods
      ~@(for [[dispatch-val & body] impls]
          `(defmethod ~cog-name ~dispatch-val [~client-param ~message-param] ~@body))))
+
+;;; Alternative methods of loading and providing cogs
+(defn load-clojure-files-in-folder!
+  "Given a directory, loads all of the .clj files in that directory tree. This can be used to
+   dynamically load cogs defined with defcog or manually calling register-cog! out of a folder."
+  [folder]
+  (let [clojure-files (->> folder
+                           (io/file)
+                           (file-seq)
+                           (filter (fn [f] (ends-with? f ".clj"))))]
+    (doseq [file clojure-files]
+      (load-file (.getAbsolutePath file)))))

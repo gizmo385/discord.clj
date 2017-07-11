@@ -23,5 +23,11 @@
 (defn get-prefix []
   (:prefix (file-io global-bot-settings :load)))
 
+(defn get-bot-name []
+  (:bot-name (file-io global-bot-settings :load)))
+
+(defn get-cog-folders []
+  (:cog-folders (file-io global-bot-settings :load)))
+
 (defn get-token []
   (:token (file-io global-bot-settings :load)))
