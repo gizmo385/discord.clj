@@ -47,7 +47,7 @@ Example:
 ```
 
 ###### data/settings/settings.json:
-```javascript
+```json
 {
     "token" : "auth-token",
     "prefix" : "^",
