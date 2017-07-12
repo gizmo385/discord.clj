@@ -1,4 +1,4 @@
-# Using discord.clj
+# Creating Bots Using discord.clj
 
 Currently there are 2 ways of defining bots in discord.clj:
 
