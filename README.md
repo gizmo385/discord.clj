@@ -68,6 +68,8 @@ Here is a dead-simple bot you can create using discord.clj:
     :admin  admin-cog))
 ```
 
+For more examples, check out the /docs folder for walkthroughs on how to create a bot.
+
 ## License
 
 Copyright © 2017 Christopher Chapline
