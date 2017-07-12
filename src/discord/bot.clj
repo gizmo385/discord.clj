@@ -10,8 +10,6 @@
             [discord.utils :as utils])
   (:import [discord.types ConfigurationAuth]))
 
-(defonce global-cog-registry (atom {}))
-
 ;;; Defining what an Extension and a Bot is
 (defrecord Extension [command handler])
 (defrecord DiscordBot [bot-name extensions prefix client]
@@ -25,9 +23,13 @@
   [message command]
   (assoc message :content (-> message :content (s/replace-first command "") s/triml)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Patch functions exposed to bot developers:
+;;;
 ;;; Patch functions that get exposed dynamically to clients within bot handler functions. These
 ;;; functions are nil unless invoked within the context of a function called from within a
 ;;; build-handler-fn.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn ^:dynamic say [message])
 (defn ^:dynamic delete [message])
 
@@ -36,7 +38,9 @@
   [send-channel channel content]
   (go (>! send-channel {:channel channel :content content :options {}})))
 
-;;; Bot extension handling
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; General bot definition and cog/extension dispatch building
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn- send-general-help-message
   [client extensions])
 
@@ -61,10 +65,7 @@
         (dispatch-to-handlers client message prefix extensions)))))
 
 
-;;; Builds a bot based on a name and set of extensions
-(defn create-extension [command handler]
-  (Extension. command handler))
-
+;;; General bot creation
 (defn create-bot
   "Creates a bot that will dynamically dispatch to different extensions based on <prefix><command>
    style messages."
@@ -80,22 +81,28 @@
      (log/info (format "Creating bot with prefix: %s" prefix))
      (DiscordBot. bot-name extensions prefix discord-client))))
 
-;;; Macros to simplify bot creation
-(defn build-extensions
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Defining a bot and its cogs inline
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn build-extensions-syntax
   ([fn-key fn-body]
    `(Extension. (name ~fn-key) ~fn-body))
   ([key-func-pairs]
-   (into [] (map (partial apply build-extensions)
+   (into [] (map (partial apply build-extensions-syntax)
                  (partition 2 key-func-pairs)))))
 
 (defmacro open-with-cogs
   "Given a name, prefix and series of :keyword-function pairs, builds a new bot inside of a
    with-open block that will sleep the while background threads manage the bot."
   [bot-name prefix & key-func-pairs]
-  `(with-open [discord-bot# (create-bot ~bot-name ~(build-extensions key-func-pairs) ~prefix)]
+  `(with-open [bot# (create-bot ~bot-name ~(build-extensions-syntax key-func-pairs) ~prefix)]
      (while true (Thread/sleep 3000))))
 
-;;; Macros to simplify cog definitions
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Defining global cogs and commands that get loaded dynamically on bot startup
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defonce global-cog-registry (atom {}))
+
 (defn register-cog!
   [cog-name cog-function]
   (swap! global-cog-registry assoc cog-name cog-function))
@@ -147,7 +154,30 @@
      ~@(for [[dispatch-val & body] impls]
          `(defmethod ~cog-name ~dispatch-val [~client-param ~message-param] ~@body))))
 
-;;; Alternative methods of loading and providing cogs
+(defmacro defcommand
+  "Defines a one-off command and adds that to the global cog registry. This is a single function
+   that will respond to commands and is not a part of a larger command infrastructure.
+
+   Example:
+   (defcommand botsay [client message]
+    (say (:content message))
+    (delete message))
+
+   The above code expands into the following:
+
+   (do
+    (defn botsay [client message]
+      (say (:content message))
+      (delete message))
+
+    (register-cog! :botsay botsay))
+   "
+  [command [client-param message-param :as arg-vector] & body]
+  `(do
+     (defn ~command [~client-param ~message-param] ~@body)
+     (register-cog! ~(keyword command) ~command)))
+
+;;; Loading cogs from other files
 (defn load-clojure-files-in-folder!
   "Given a directory, loads all of the .clj files in that directory tree. This can be used to
    dynamically load cogs defined with defcog or manually calling register-cog! out of a folder."
@@ -157,4 +187,36 @@
                            (file-seq)
                            (filter (fn [f] (ends-with? f ".clj"))))]
     (doseq [file clojure-files]
-      (load-file (.getAbsolutePath file)))))
+      (let [filename (.getAbsolutePath file)]
+        (log/info (format "Loading cogs from: %s" filename))
+        (load-file filename)))))
+
+
+(defn create-extension [command handler]
+  (Extension. (name command) handler))
+
+(defn build-extensions [key-func-pairs]
+  (into [] (map (partial apply create-extension) key-func-pairs)))
+
+(defn get-registry-extensions
+  "Returns the current global-cog-registry as a list of Extensions."
+  []
+  (build-extensions (into [] @global-cog-registry)))
+
+(defmacro with-file-cogs
+  "Creates a bot where the cogs are those present in all Clojure files present in the directories
+   supplied. This allows you to dynamically add files to a cogs/ directory and have them get
+   automatically loaded by the bot when it starts up."
+  [bot-name prefix folders]
+  `(do
+     ;; Loads all the clojure files in the folders supplied
+     (doseq [folder# ~folders]
+       (load-clojure-files-in-folder! folder#))
+
+     ;; Opens a bot with those extensions
+     (let [cogs# (get-registry-extensions)]
+       (log/info (format "Loaded %d cogs: %s."
+                         (count cogs#)
+                         (s/join ", " (map :command cogs#))))
+       (with-open [discord-bot# (create-bot ~bot-name cogs# ~prefix)]
+         (while true (Thread/sleep 3000))))))
