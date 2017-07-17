@@ -11,7 +11,10 @@
 (defonce user-agent "DiscordBot (https://github.com/gizmo385/discord.clj)")
 (defonce discord-url "https://discordapp.com/api/v6")
 
-;;; Defining types relevant to the Discord APIs
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Defining Records relevant to the Discord APIs, as well as more useful constructors for
+;;; those Records.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defrecord Server [id name permissions owner? icon region])
 
 (defn build-server [server-map]
@@ -54,8 +57,14 @@
      :type      (get channel-type-map (:type channel-map))}))
 
 
-
-;;; Defining all of the Discord API endpoints (there's a lot of em)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Defining the various API endpoints exposed by the Discord APIs. Each of these is a defined as a
+;;; "Route" Record, which consistents of the endpoint (formatted for use with clojure.core/format)
+;;; as well as the correct HTTP method used to make the API call.
+;;;
+;;; Requests should be made using the discord-request function and by passing the correct key
+;;; present in the endpoint-mapping.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defrecord Route [endpoint method])
 
 (defonce endpoint-mapping
@@ -158,7 +167,6 @@
       :delete   (assoc request :body (json/write-str json) :content-type :json)
       (throw (ex-info "Unknown request method" {:endpoint endpoint :method method})))))
 
-;;; General request wrapper
 (defn discord-request
   "General wrapper function for handling requests to the discord APIs.
 

@@ -86,8 +86,17 @@
 (defonce message-code->name
   (map-invert message-name->code))
 
-;;; Handle server message events
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Handling server EVENTS
+;;;
+;;; Server events are control messages sent by the Gateway to a connected client to inform the
+;;; client about disconnects, reconnects, rate limits, etc.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defmulti handle-server-event
+  "Handling server EVENTS.
+
+   Server events are control messages sent by the Gateway to a connected client to inform the
+   client about disconnects, reconnects, rate limits, etc."
   (fn [discord-event gateway receive-chan heartbeat-interval]
     (message-code->name (:op discord-event))))
 
@@ -105,12 +114,15 @@
   [discord-event gateway receive-chan heartbeat-interval]
   (log/info (format "Event of Type: %s" (message-code->name (:op discord-event)))))
 
-;;; Handle messages from the server
 (defmulti handle-server-message
-  "Handle messages coming from Discord across the websocket"
+  "Handling server MESSAGES
+
+   These are messages that are received from the server and include text messages sent by
+   users/clients as well as various control messages sent by the Discord gateway."
   (fn [discord-message gateway receive-chan heartbeat-interval]
     (keyword (:t discord-message))))
 
+;;; These are messages that are currently not explicitly handled by the framework
 (defmethod handle-server-message :READY [& _])
 (defmethod handle-server-message :PRESENCE_UPDATE [& _])
 (defmethod handle-server-message :GUILD_CREATE [& _])
@@ -137,7 +149,10 @@
   (log/info (format "Unknown message of type %s received: " (keyword (:t discord-message)))))
 
 
-;;; Sending some of the standard messages to the Discord Gateway
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Helper functions to send some common control messages, such as heartbeats or identification 
+;;; messages, to the Discord gateway.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn format-gateway-message
   "Builds the correct map structure with the correct op-codes. If the op-code supplied is not found,
    an (ex-info) Exception will be raised"
@@ -168,7 +183,9 @@
     (send-message gateway heartbeat)))
 
 
-;;; Establishing a connection to the Discord gateway
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Establishing a connection to the Discord gateway and begin reading messages from it.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn- handle-message
   "Parses a message coming from the server.
 

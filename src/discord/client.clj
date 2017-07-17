@@ -6,10 +6,12 @@
             [discord.types :refer [Authenticated] :as types])
   (:import [discord.types ConfigurationAuth]))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Representing a Discord client connected to the Discord server
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defprotocol DiscordClient
   (send-message [this channel content options]))
 
-;;; Representing a client connected to the discord server
 (defrecord GeneralDiscordClient [auth gateway message-handler send-channel receive-channel
                                  seq-num heartbeat-interval]
   Authenticated
