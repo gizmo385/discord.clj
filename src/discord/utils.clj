@@ -4,9 +4,9 @@
 
 (defn get-id [object-or-id]
   (condp = (type object-or-id)
-    java.lang.String object-or-id
+    java.lang.String  object-or-id
     java.lang.Integer object-or-id
-    java.lang.Long object-or-id
+    java.lang.Long    object-or-id
     (:id object-or-id)))
 
 (defn bidirectional-map [m]
@@ -14,3 +14,13 @@
 
 (defn words [s]
   (s/split s #"\s+"))
+
+(defonce dict-replace-pattern
+  #"\{(?<field>\w+)\}")
+
+(defn dict-format [target replacements]
+  (s/replace-first
+    target
+    dict-replace-pattern
+    (fn [[_ field]]
+      (get replacements (keyword field) field))))
