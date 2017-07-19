@@ -8,8 +8,18 @@
   (:kick
     (doseq [user (:user-mentions message)]
       (let [user-id (:id user)
-            guild-id (get-in message [:channel :guild-id] message)]
+            guild-id (get-in message [:channel :guild-id])]
         (http/kick client guild-id user-id))))
+
+  (:ban
+    (doseq [user (:user-mentions message)]
+      (let [guild-id (get-in message [:channel :guild-id])]
+        (http/ban client guild-id user))))
+
+  (:unban
+    (doseq [user (:user-mentions message)]
+      (let [guild-id (get-in message [:channel :guild-id])]
+        (http/unban client guild-id user))))
 
   (:broadcast
     (let [bcast-message (->> message :content utils/words rest (s/join " "))
