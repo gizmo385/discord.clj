@@ -1,6 +1,7 @@
 (ns discord.utils
   (:require [clojure.set :refer [map-invert]]
-            [clojure.string :as s]))
+            [clojure.string :as s]
+            [clojure.tools.logging :as log]))
 
 (defn get-id [object-or-id]
   (condp = (type object-or-id)
@@ -19,8 +20,12 @@
   #"\{(?<field>\w+)\}")
 
 (defn dict-format [target replacements]
-  (s/replace-first
+  (s/replace
     target
     dict-replace-pattern
     (fn [[_ field]]
-      (get replacements (keyword field) field))))
+      (->> field
+           (keyword)
+           (get replacements)
+           (get-id)
+           (str)))))
