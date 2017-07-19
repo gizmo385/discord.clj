@@ -26,7 +26,8 @@
      :permissions (:permissions server-map)
      :region      (get types/server-region (:region server-map))}))
 
-(defrecord User [id username roles deaf mute avatar joined discriminator])
+(defrecord User [id username bot? mfa-enabled? verified? roles deaf mute avatar joined
+                 discriminator])
 
 (defn build-user [user-map]
   (map->User
@@ -34,6 +35,9 @@
      :mute          (:mute user-map)
      :roles         (:roles user-map)
      :joined        (:joined_at user-map)
+     :bot?          (-> user-map :user :bot)
+     :mfa-enabled?  (-> user-map :user :mfa_enabled)
+     :verified?     (-> user-map :user :verified)
      :username      (-> user-map :user :username)
      :id            (-> user-map :user :id)
      :avatar        (-> user-map :user :avatar)

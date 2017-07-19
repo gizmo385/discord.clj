@@ -57,7 +57,7 @@
      ;; Read messages coming from the server and pass them to the handler
      (go-loop []
        (if-let [message (<! receive-channel)]
-         (if (not= (-> message :author :id) (:id current-user))
+         (if (-> message :author :bot? not)
            (try
              (message-handler client message)
              (catch Exception e (log/error e)))))
