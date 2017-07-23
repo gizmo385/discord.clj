@@ -44,10 +44,12 @@
   ([auth message-handler & {:keys [send-channel receive-channel] :as options}]
    (let [send-channel       (or (:send-channel options) (async/chan))
          receive-channel    (or (:receive-channel options) (async/chan))
-         current-user       (http/get-current-user auth)
          seq-num            (atom 0)
          heartbeat-interval (atom nil)
-         gateway            (gw/connect-to-gateway auth receive-channel seq-num heartbeat-interval)
+         session-id         (atom nil)
+         socket             (atom nil)
+         gateway            (gw/connect-to-gateway auth receive-channel seq-num heartbeat-interval
+                                                   session-id socket)
          client             (GeneralDiscordClient. auth gateway message-handler send-channel
                                                    receive-channel seq-num heartbeat-interval)]
 

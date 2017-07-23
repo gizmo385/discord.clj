@@ -37,3 +37,29 @@
          (s/join \newline)
          (format "Servers I'm a part of: \n%s")
          (bot/say))))
+
+
+(bot/defcommand flip [client message]
+  (bot/say (format "Flipping a coin....%s" (rand-nth ["Heads" "Tails"]))))
+
+
+(bot/defcommand rps [client message]
+  (if-let [user-choice (-> message :content utils/words first keyword)]
+    (if (some #{user-choice} [:rock :paper :scissors])
+      (let [bot-choice (rand-nth [:rock :paper :scissors])]
+        (condp = [user-choice bot-choice]
+          ;; Tie choices
+          [:rock :rock]           (bot/say ":moyai: We're even! :moyai:")
+          [:paper :paper]         (bot/say ":newspaper: We're even! :newspaper:")
+          [:scissors :scissors]   (bot/say ":scissors: We're even! :scissors:")
+
+          [:rock :paper]          (bot/say ":newspaper: I win! :newspaper:")
+          [:rock :scissors]       (bot/say ":scissors: You win! :scissors:")
+
+          [:paper :rock]          (bot/say ":moyai: You win! :moyai:")
+          [:paper :scissors]      (bot/say ":scissors: I win! :scissors:")
+
+          [:scissors :rock]       (bot/say ":moyai: I win! :moyai:")
+          [:scissors :paper]      (bot/say ":newspaper: You win! :newspaper:")))
+      (bot/say "Please choose either rock, paper, or scissors."))
+    (bot/say "Please choose either rock, paper, or scissors.")))
