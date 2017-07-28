@@ -11,7 +11,7 @@
   (:import [discord.types ConfigurationAuth]))
 
 ;;; Defining what an Extension and a Bot is
-(defrecord Extension [command handler])
+(defrecord Extension [command handler options])
 (defrecord DiscordBot [bot-name extensions prefix client]
   java.io.Closeable
   (close [this]
@@ -85,11 +85,16 @@
 ;;; Defining a bot and its cogs inline
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn build-extensions-syntax
-  ([fn-key fn-body]
-   `(Extension. (name ~fn-key) ~fn-body))
   ([key-func-pairs]
    (into [] (map (partial apply build-extensions-syntax)
-                 (partition 2 key-func-pairs)))))
+                 (partition 2 key-func-pairs))))
+  ([fn-key fn-body]
+   `(map->Extension {:command ~fn-key
+                     :handler ~fn-body}))
+  ([fn-key fn-body command-options]
+   `(map->Extension {:command ~fn-key
+                     :handler ~fn-body
+                     :options ~command-options})))
 
 (defmacro open-with-cogs
   "Given a name, prefix and series of :keyword-function pairs, builds a new bot inside of a
@@ -101,11 +106,21 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Defining global cogs and commands that get loaded dynamically on bot startup
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defonce global-cog-registry (atom {}))
+(defonce global-cog-registry (atom (list)))
 
 (defn register-cog!
-  [cog-name cog-function]
-  (swap! global-cog-registry assoc cog-name cog-function))
+  ;; Cog without options
+  ([cog-name cog-function]
+   (let [cog-map {:command  cog-name
+                  :handler  cog-function
+                  :options  nil}]
+     (swap! global-cog-registry conj cog-map)))
+  ;; Cog with options
+  ([cog-name cog-function cog-options]
+   (let [cog-map {:command  cog-name
+                  :handler  cog-function
+                  :options  cog-options}]
+     (swap! global-cog-registry conj cog-map))))
 
 (defmacro defcog
   "Defines a multi-method with the supplied name with a 2-arity dispatch function which dispatches
@@ -114,9 +129,13 @@
 
    Example:
    (defcog test-cog [client message]
-    (:say (say message))
+    \"Optional global cog documentation\"
+    (:say
+      \"Optional command documentation\"
+      (say message))
 
-    (:greet (say \"Hello Everyone!\"))
+    (:greet
+      (say \"Hello Everyone!\"))
 
     (:kick
       (doseq [user (:user-mentions message)]
@@ -127,32 +146,70 @@
     cog-name    :: String -- The name of the cog, and subsequent multi-method being defined.
     arg-vector  :: Vector -- A 2-element vector defining the argument vector for the cog. The first
                               argument is the client being passed to the message
+    docstring?  :: String -- Optional documentation that can be supplied for this cog.
     impls       :: Forms  -- A sequence of lists, each representing a command implementation. The
                               first argument to each implementation is a keyword representing the
-                              command being implemented."
+                              command being implemented. Optionally, the first argument in the
+                              implementation can be documentation for this particular command."
+  {:arglists '([cog-name [client-param message-param] docstring? & impls])}
   [cog-name [client-param message-param :as arg-vector] & impls]
   ;; Verify that the argument vector supplied to defcog is a list of 2
   {:pre [(or (= 2 (count arg-vector))
              (throw (ex-info "Cog definition argument vector requires 2 items (client & message)."
                              {:len (count arg-vector) :curr arg-vector})))]}
-  `(do
-     ;; Define the multimethod
-     (defmulti ~cog-name
-       (fn [client# message#]
-         (-> message# :content utils/words first keyword)))
+  (let [docstring?  (first impls)
+        m           (if (string? docstring?)
+                      {:doc docstring?}
+                      {})
+        impls       (if (string? docstring?)
+                      (rest impls)
+                      impls)
+        options     (if (map? (first impls))
+                      (first impls)
+                      {})
+        impls       (if (map? (first impls))
+                      (rest impls)
+                      impls)]
+    `(do
+       ;; Define the multimethod
+       (defmulti ~(with-meta cog-name m)
+         (fn [client# message#]
+           (-> message# :content utils/words first keyword)))
 
-     ;; Register the cog with the global cog hierarchy
-     (register-cog! ~(keyword cog-name) ~cog-name)
+       ;; Register the cog with the global cog hierarchy
+       (register-cog! ~(keyword cog-name) ~cog-name ~options)
 
-     ;; Supply a "default" error message responding back with an unknown command message
-     (defmethod ~cog-name :default [_# message#]
-       (say (format "Unrecognized command for %s: %s"
-                    ~(name cog-name)
-                    (-> message# :content utils/words first))))
+       ;; Supply a "default" error message responding back with an unknown command message
+       (defmethod ~cog-name :default [_# message#]
+         (say (format "Unrecognized command for %s: %s"
+                      ~(name cog-name)
+                      (-> message# :content utils/words first))))
 
-     ;; Build the implementation methods
-     ~@(for [[dispatch-val & body] impls]
-         `(defmethod ~cog-name ~dispatch-val [~client-param ~message-param] ~@body))))
+       ;; Add the docstring and the arglist to this command
+       (alter-meta! (var ~cog-name) assoc
+                    :doc      (str ~docstring? "\n\nAvailable Subcommands:\n")
+                    :arglists (quote ([~client-param ~message-param])))
+
+       ;; Build the method implementations
+       ~@(for [[dispatch-val & body] impls]
+           ; Alter the documentation meta to include this subcommand
+           `(let [command-doc#  (if ~(string? (first body))
+                                  ~(format "\t%s: %s\n" (name dispatch-val) (first body))
+                                  ~(format "\t%s\n" (name dispatch-val)))]
+              ; Add documentation for this command to the multimethod documentation
+              (alter-meta!
+                (var ~cog-name)
+                (fn [current-val#]
+                  (let [current-doc# (:doc current-val#)]
+                    (assoc current-val# :doc (str current-doc# command-doc#)))))
+
+              ; Define the method for this particular dispatch value
+              (defmethod ~cog-name ~dispatch-val [~client-param ~message-param]
+                ; If docstring is provided to the command, we need to skip the first argument in
+                ; the implementation
+                (if (string? (first ~body))
+                  (do ~@(rest body))
+                  (do ~@body))))))))
 
 (defmacro defcommand
   "Defines a one-off command and adds that to the global cog registry. This is a single function
@@ -160,22 +217,36 @@
 
    Example:
    (defcommand botsay [client message]
-    (say (:content message))
-    (delete message))
+   \t(say (:content message))
+   \t(delete message))
 
    The above code expands into the following:
 
    (do
-    (defn botsay [client message]
-      (say (:content message))
-      (delete message))
+   \t(defn botsay [client message]
+   \t\t(say (:content message))
+   \t\t(delete message))
 
-    (register-cog! :botsay botsay))
+   \t(register-cog! :botsay botsay))
    "
-  [command [client-param message-param :as arg-vector] & body]
-  `(do
-     (defn ~command [~client-param ~message-param] ~@body)
-     (register-cog! ~(keyword command) ~command)))
+  {:arglists '([command [client-param message-param] docstring? options? & command-body])}
+  [command [client-param message-param :as arg-vector] & command-body]
+  ;; Try and parse out some of the options that can be supplied to the command
+  (let [m             (if (string? (first command-body))
+                        {:doc (first command-body)}
+                        {})
+        command-body  (if (string? (first command-body))
+                        (rest command-body)
+                        command-body)
+        options       (if (map? (first command-body))
+                        (first command-body)
+                        {})
+        command-body  (if (map? (first command-body))
+                        (rest command-body)
+                        command-body)]
+    `(do
+       (defn ~(with-meta command m) [~client-param ~message-param] ~@command-body)
+       (register-cog! ~(keyword command) ~command ~options))))
 
 ;;; Loading cogs from other files
 (defn load-clojure-files-in-folder!
@@ -192,8 +263,10 @@
         (load-file filename)))))
 
 
-(defn create-extension [command handler]
-  (Extension. (name command) handler))
+(defn create-extension
+  [command handler]
+  (map->Extension {:command (name command)
+                   :handler handler}))
 
 (defn build-extensions [key-func-pairs]
   (into [] (map (partial apply create-extension) key-func-pairs)))
@@ -201,7 +274,7 @@
 (defn get-registry-extensions
   "Returns the current global-cog-registry as a list of Extensions."
   []
-  (build-extensions (into [] @global-cog-registry)))
+  (map map->Extension @global-cog-registry))
 
 (defmacro with-file-cogs
   "Creates a bot where the cogs are those present in all Clojure files present in the directories
