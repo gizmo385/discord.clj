@@ -3,6 +3,7 @@
             [clojure.java.io :as io]
             [clojure.core.async :refer [go >!] :as async]
             [clojure.tools.logging :as log]
+            [clojure.repl :refer [doc]]
             [discord.client :as client]
             [discord.config :as config]
             [discord.http :as http]
@@ -48,9 +49,10 @@
   "Dispatches to relevant function handlers when the the messages starts with <prefix><command>."
   [client message prefix extensions]
   (doseq [{:keys [command handler] :as ext} extensions]
-    (let [command-string (str prefix command)]
+    (let [command-string (str prefix (name command))]
       (if (starts-with? (:content message) command-string)
-        (handler client (trim-message-command message command-string))))))
+        (do
+          (handler client (trim-message-command message command-string)))))))
 
 (defn- build-handler-fn
   "Builds a handler around a set of extensions and rebinds 'say' to send to the message source"
@@ -107,6 +109,7 @@
 ;;; Defining global cogs and commands that get loaded dynamically on bot startup
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defonce global-cog-registry (atom (list)))
+(defonce global-cog-docs (atom {}))
 
 (defn register-cog!
   ;; Cog without options
@@ -121,6 +124,10 @@
                   :handler  cog-function
                   :options  cog-options}]
      (swap! global-cog-registry conj cog-map))))
+
+(defn register-cog-docs! [cog-name documentation]
+  (if (seq documentation)
+    (swap! global-cog-docs assoc cog-name documentation)))
 
 (defmacro defcog
   "Defines a multi-method with the supplied name with a 2-arity dispatch function which dispatches
@@ -157,11 +164,14 @@
   {:pre [(or (= 2 (count arg-vector))
              (throw (ex-info "Cog definition argument vector requires 2 items (client & message)."
                              {:len (count arg-vector) :curr arg-vector})))]}
-  (let [docstring?  (first impls)
-        m           (if (string? docstring?)
-                      {:doc docstring?}
+  ;; Parse out some of the possible optional arguments
+  (let [docstring?  (if (string? (first impls))
+                      (first impls)
+                      "")
+        m           (if (string? (first impls))
+                      {:doc (first impls)}
                       {})
-        impls       (if (string? docstring?)
+        impls       (if (string? (first impls))
                       (rest impls)
                       impls)
         options     (if (map? (first impls))
@@ -192,24 +202,31 @@
 
        ;; Build the method implementations
        ~@(for [[dispatch-val & body] impls]
-           ; Alter the documentation meta to include this subcommand
-           `(let [command-doc#  (if ~(string? (first body))
-                                  ~(format "\t%s: %s\n" (name dispatch-val) (first body))
-                                  ~(format "\t%s\n" (name dispatch-val)))]
-              ; Add documentation for this command to the multimethod documentation
+           ;; Alter the documentation meta to include this subcommand
+           `(let [command-doc#  ~(if (string? (first body))
+                                   `(format "\t%s: %s\n" ~(name dispatch-val) ~(first body))
+                                   `(format "\t%s\n" ~(name dispatch-val)))]
+              ;; Add documentation for this command to the multimethod documentation
               (alter-meta!
                 (var ~cog-name)
                 (fn [current-val#]
                   (let [current-doc# (:doc current-val#)]
                     (assoc current-val# :doc (str current-doc# command-doc#)))))
 
-              ; Define the method for this particular dispatch value
+              ;; Define the method for this particular dispatch value
               (defmethod ~cog-name ~dispatch-val [~client-param ~message-param]
-                ; If docstring is provided to the command, we need to skip the first argument in
-                ; the implementation
-                (if (string? (first ~body))
-                  (do ~@(rest body))
-                  (do ~@body))))))))
+                ;; If docstring is provided to the command, we need to skip the first argument in
+                ;; the implementation
+                ~(if (string? (first body))
+                   `(do ~@(rest body))
+                   `(do ~@body)))))
+
+       (log/info (format "Registering docs: %s -> %s"
+                         ~(keyword cog-name)
+                         (-> (var ~cog-name) meta :doc)))
+       (register-cog-docs!
+         ~(keyword cog-name)
+         (-> (var ~cog-name) meta :doc)))))
 
 (defmacro defcommand
   "Defines a one-off command and adds that to the global cog registry. This is a single function
@@ -246,7 +263,9 @@
                         command-body)]
     `(do
        (defn ~(with-meta command m) [~client-param ~message-param] ~@command-body)
-       (register-cog! ~(keyword command) ~command ~options))))
+       (register-cog! ~(keyword command) ~command ~options)
+       (if (:doc ~m)
+         (register-cog-docs! ~(keyword command) ~(:doc m))))))
 
 ;;; Loading cogs from other files
 (defn load-clojure-files-in-folder!
@@ -293,3 +312,18 @@
                          (s/join ", " (map :command cogs#))))
        (with-open [discord-bot# (create-bot ~bot-name cogs# ~prefix)]
          (while true (Thread/sleep 3000))))))
+
+;;; Builtin bot commands
+(defonce doc-separator (s/join (repeat 100 "-")))
+
+(defcommand help
+  [_ _]
+  "Look at help information for the available cogs."
+  (let [doc-separator (s/join (repeat 100 "-"))
+        command-docs  (s/join \newline
+                              (for [[c d] @global-cog-docs]
+                                (format "%s\n%s: %s" doc-separator (name c) d)))]
+    (if (seq command-docs)
+      (say (format "Commands:\n%s\n%s" command-docs doc-separator))
+      (let [commands (s/join ", " (map (comp name :command) @global-cog-registry))]
+        (say (format "Commands: %s" commands))))))
