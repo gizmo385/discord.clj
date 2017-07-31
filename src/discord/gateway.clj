@@ -222,6 +222,8 @@
       ;; Pass the message on to the handler
       (handle-server-message message gateway receive-channel)))
 
+(declare reconnect-gateway)
+
 (defn- create-websocket
   "Creates websocket and connects to the Discord gateway."
   [gateway receive-channel]
