@@ -189,14 +189,16 @@
   (let [heartbeat (format-gateway-message :heartbeat @seq-num)]
     (send-message gateway heartbeat)))
 
-(defn send-resume [gateway session-id seq-num]
-  (send-message
-    gateway
-    (format-gateway-message
-      :resume
-      {:token           (types/token gateway)
-       :session_id      session-id
-       :seq             @seq-num})))
+(defn send-resume [gateway]
+  (let [session-id  (:session-id gateway)
+        seq-num     @(:seq-num gateway)]
+    (send-message
+      gateway
+      (format-gateway-message
+        :resume
+        {:token           (types/token gateway)
+         :session_id      session-id
+         :seq             seq-num}))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Establishing a connection to the Discord gateway and begin reading messages from it.
@@ -232,7 +234,9 @@
                     (handle-message message gateway receive-channel))
       :on-connect (fn [message] (log/info "Connected to Discord Gateway"))
       :on-error   (fn [message] (log/error (format "Error: %s" message)))
-      :on-close   (fn [status reason] (log/info (format "Closed: %s (%d)" reason status))))))
+      :on-close   (fn [status reason]
+                    (log/info "Connected closed, attempting to reconnect...")
+                    (reconnect-gateway gateway)))))
 
 (defn connect-to-gateway
   "Attempts to connect to the discord Gateway using some supplied authentication source
@@ -273,8 +277,9 @@
     ;; Return the gateway that we created
     gateway))
 
-(defn reconnect-gateway [auth gateway]
+(defn reconnect-gateway [gateway]
   (let [receive-channel (:receive-channel gateway)
         socket-atom     (:websocket gateway)
-        websocket (create-websocket gateway receive-channel)]
-    (reset! socket-atom websocket)))
+        websocket       (create-websocket gateway receive-channel)]
+    (reset! socket-atom websocket)
+    (send-resume gateway)))
