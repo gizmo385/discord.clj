@@ -123,9 +123,11 @@
   (fn [discord-message gateway receive-chan]
     (keyword (:t discord-message))))
 
-;;; These are messages that are currently not explicitly handled by the framework
+;;; These are messages that are currently not explicitly handled by the framework, but that we don't
+;;; want to explicitly handle.
 (defmethod handle-server-message :PRESENCE_UPDATE [& _])
 (defmethod handle-server-message :GUILD_CREATE [& _])
+(defmethod handle-server-message :CHANNEL_CREATE [& _])
 (defmethod handle-server-message :TYPING_START [& _])
 (defmethod handle-server-message :MESSAGE_DELETE [& _])
 (defmethod handle-server-message :MESSAGE_UPDATE [& _])
