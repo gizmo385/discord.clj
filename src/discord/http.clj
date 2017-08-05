@@ -115,6 +115,7 @@
    :get-channel         (Route. "/channels/{channel}" :get)
    :get-guild-channels  (Route. "/guilds/{guild}/channels" :get)
    :create-channel      (Route. "/guilds/{guild}/channels" :post)
+   :create-dm-channel   (Route. "/users/@me/channels" :post)
    :edit-channel        (Route. "/channels/{channel}" :patch)
    :delete-channel      (Route. "/channels/{channel}" :delete)
 
@@ -325,6 +326,10 @@
 (defn create-channel [auth guild channel-name & {:keys [type bitrate] :as params}]
   (let [request-params (assoc params :name channel-name)]
     (discord-request :create-channel auth :guild guild :json request-params)))
+
+(defn create-dm-channel [auth user]
+  (let [json-params {:recipient_id (utils/get-id user)}]
+    (build-channel (into {} (discord-request :create-dm-channel auth :json json-params)))))
 
 (defn edit-channel [auth channel & {:keys [name topic bitrate position] :as params}]
   (discord-request :edit-channel auth :channel channel :json params))

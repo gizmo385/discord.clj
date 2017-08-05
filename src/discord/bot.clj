@@ -32,12 +32,18 @@
 ;;; build-handler-fn.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn ^:dynamic say [message])
+(defn ^:dynamic pm [message])
 (defn ^:dynamic delete [message])
 
 ;;; These functions locally patch the above functions based on context supplied by the handler
 (defn- say*
   [send-channel channel content]
   (go (>! send-channel {:channel channel :content content :options {}})))
+
+(defn pm* [auth send-channel user content]
+  ;; Open up a DM channel with the recipient and then send them the message
+  (let [dm-channel (http/create-dm-channel auth user)]
+    (go (>! send-channel {:channel dm-channel :content content :options {}}))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; General bot definition and cog/extension dispatch building
@@ -62,7 +68,8 @@
   (fn [client message]
     ;; First we'll overwrite all of the dynamic functions
     (binding [say     (partial say* (:send-channel client) (:channel message))
-              delete  (partial http/delete-message client (:channel message))]
+              delete  (partial http/delete-message client (:channel message))
+              pm      (partial pm* client (:send-channel client) (get-in message [:author :id]))]
       (if (-> message :content (starts-with? prefix))
         (dispatch-to-handlers client message prefix extensions)))))
 
@@ -324,6 +331,6 @@
                               (for [[c d] @global-cog-docs]
                                 (format "%s\n%s: %s" doc-separator (name c) d)))]
     (if (seq command-docs)
-      (say (format "Commands:\n%s\n%s" command-docs doc-separator))
+      (pm (format "Commands:\n%s\n%s" command-docs doc-separator))
       (let [commands (s/join ", " (map (comp name :command) @global-cog-registry))]
-        (say (format "Commands: %s" commands))))))
+        (pm (format "Commands: %s" commands))))))
