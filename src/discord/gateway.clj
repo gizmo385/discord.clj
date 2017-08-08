@@ -6,7 +6,6 @@
             [clojure.set :refer [map-invert]]
             [clojure.pprint :refer [pprint]]
             [gniazdo.core :as ws]
-            [swiss.arrows :refer [-<> -<>>]]
             [discord.http :as http]
             [discord.types :refer [Authenticated] :as types]
             [discord.config :as config]))

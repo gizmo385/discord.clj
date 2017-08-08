@@ -3,7 +3,6 @@
             [clojure.tools.logging :as log]
             [clojure.data.json :as json]
             [clojure.string :as s]
-            [swiss.arrows :refer [-<> -<>>]]
             [discord.types :refer [Authenticated] :as types]
             [discord.utils :as utils]))
 
@@ -192,7 +191,7 @@
     (try
       (let [result (client/request request)]
         (condp = (:status result)
-          200 (-<> result
+          200 (as-> result <>
                    (:body <>)
                    (json/read-str <> :key-fn keyword)
                    (map constructor <>))
