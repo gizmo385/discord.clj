@@ -1,4 +1,9 @@
 (ns discord.http
+  "Functions and Records used to interact directly with the Discord API. Any actions performed
+   on Discord eventually boil down to some form of API request. The API endpoints are represented as
+   human-readable keywords and implemented using the discord-request helper function. Exposed
+   externally are functions such as get-channel, which perform the API requests and handle the
+   transformation of the response into a more usable Clojure record."
   (:require [clojure.tools.logging :as log]
             [clojure.core.cache :as cache]
             [clojure.data.json :as json]
@@ -159,22 +164,23 @@
      :method method}
     (throw (ex-info "Invalid endpoint supplied" {:endpoint endpoint-key}))))
 
-;;; Making requests to the Discord API
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Functions that handle direct interactions with the Discord API
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defonce rate-limit-pool (at/mk-pool))
-
-(defn build-auth-string [auth]
-  (format "%s %s" (types/token-type auth) (types/token auth)))
 
 (defn- build-request
   "Builds the API request based on the selected endpoint on the supplied arguments."
   [endpoint method auth json params]
   (let  [url      (str discord-url endpoint)
          headers  {:User-Agent    user-agent
-                   :Authorization (build-auth-string auth)
+                   :Authorization (format "%s %s" (types/token-type auth) (types/token auth))
                    :Accept        "application/json"}
          request  {:headers headers
                    :url     url
                    :method  method}]
+    ;; Based on the HTTP method of the request being performed, we'll be attaching either a JSON
+    ;; body or URL query parameters to the request.
     (condp = method
       :get      (assoc request :params params)
       :post     (assoc request :body (json/write-str json) :content-type :json)
@@ -183,38 +189,28 @@
       :delete   (assoc request :body (json/write-str json) :content-type :json)
       (throw (ex-info "Unknown request method" {:endpoint endpoint :method method})))))
 
-
-(defn- ratelimit-reset
-  "Retrieves the rate limit from the API response and converts it to an integer"
-  [api-response]
-  (log/info (format "Parsing ratelimit: %s" api-response))
-  (.getTime (new Timestamp (get-in api-response [:headers "X-Ratelimit-Reset"]))))
-
 (defn- send-api-request
   "Sends a request to the Discord API and handles the response."
   [endpoint-key request constructor repeat-request?]
-  (log/info (format "Sending API %s request. Is repeat? --> %s" endpoint-key repeat-request?))
   (let  [response   (client/request request)
          status     (:status response)]
     (case status
-      200 (as-> response <>
-            (:body <>)
-            (json/read-str <> :key-fn keyword)
-            (map constructor <>))
+      200 (as-> response response
+            (:body response)
+            (json/read-str response :key-fn keyword)
+            (map constructor response))
       204 true
 
       ;; Default
       false)))
 
-(defn- defer-request
-  "Defers an API request to a later time due to API rate limits.."
-  [time-to-wait endpoint-key request constructor]
-  (at/after time-to-wait
-            #(log/info (send-api-request endpoint-key request constructor true))
-            rate-limit-pool))
-
 (defn discord-request
-  "General wrapper function for handling requests to the discord APIs.
+  "General wrapper function for sending a request to one of the pre-defined Discord API endpoints.
+   This function calls other helper functions to handle the following:
+    - Retrieving the API endpoint to call
+    - Formatting the request
+    - Sending the API call
+    - Deferred retries of API calls in the event of a 429 Rate Limit response
 
    Arguments:
    endpoint-key: A keyword that maps to a defined endpoint in endpoint-mapping
@@ -232,17 +228,22 @@
     (try+
       (send-api-request endpoint-key request constructor false)
 
-      ;; Handle a 429, Rate Limit, exception
-      (catch [:status 429] {:keys [headers body]}
+      ;; Handle an API rate limit (return code 429)
+      (catch [:status 429] {:keys [body]}
         (let [rate-limit-info (json/read-str body)
-              time-to-wait (get rate-limit-info "retry_after")]
-          (log/info (format "Rate limited by API, waiting for %d milliseconds." time-to-wait))
-          (defer-request time-to-wait endpoint-key request constructor)))
+              wait-time       (get rate-limit-info "retry_after")]
+          (log/info (format "Rate limited by API, waiting for %d milliseconds." wait-time))
+          (at/after wait-time #(send-api-request request constructor) rate-limit-pool)))
 
-      ;; Log any other errors taht we encounter
+      ;; Log any other errors that we encounter
       (catch Exception e
         (log/error e)
         false))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Wrappers for the various API endpoints defined above. These functions perform the requests and
+;;; wrap the response in the appropriate Record
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; Managing messages
 (defn send-message [auth channel content & {:keys [tts embed]}]
@@ -383,7 +384,6 @@
 
 (defn delete-channel [auth channel]
   (discord-request :delete-channel auth :channel channel))
-
 
 
 ;;; Miscellaneous
