@@ -1,10 +1,14 @@
 (ns discord.http
-  (:require [clj-http.client :as client]
-            [clojure.tools.logging :as log]
+  (:require [clojure.tools.logging :as log]
+            [clojure.core.cache :as cache]
             [clojure.data.json :as json]
             [clojure.string :as s]
+            [clj-http.client :as client]
+            [overtone.at-at :as at]
+            [slingshot.slingshot :refer [try+]]
             [discord.types :refer [Authenticated] :as types]
-            [discord.utils :as utils]))
+            [discord.utils :as utils])
+  (:import [java.sql Timestamp]))
 
 ;;; Global constants for interacting with the API
 (defonce user-agent "DiscordBot (https://github.com/gizmo385/discord.clj)")
@@ -156,10 +160,14 @@
     (throw (ex-info "Invalid endpoint supplied" {:endpoint endpoint-key}))))
 
 ;;; Making requests to the Discord API
+(defonce rate-limit-pool (at/mk-pool))
+
 (defn build-auth-string [auth]
   (format "%s %s" (types/token-type auth) (types/token auth)))
 
-(defn- build-request [endpoint method auth json params]
+(defn- build-request
+  "Builds the API request based on the selected endpoint on the supplied arguments."
+  [endpoint method auth json params]
   (let  [url      (str discord-url endpoint)
          headers  {:User-Agent    user-agent
                    :Authorization (build-auth-string auth)
@@ -174,6 +182,36 @@
       :patch    (assoc request :body (json/write-str json) :content-type :json)
       :delete   (assoc request :body (json/write-str json) :content-type :json)
       (throw (ex-info "Unknown request method" {:endpoint endpoint :method method})))))
+
+
+(defn- ratelimit-reset
+  "Retrieves the rate limit from the API response and converts it to an integer"
+  [api-response]
+  (log/info (format "Parsing ratelimit: %s" api-response))
+  (.getTime (new Timestamp (get-in api-response [:headers "X-Ratelimit-Reset"]))))
+
+(defn- send-api-request
+  "Sends a request to the Discord API and handles the response."
+  [endpoint-key request constructor repeat-request?]
+  (log/info (format "Sending API %s request. Is repeat? --> %s" endpoint-key repeat-request?))
+  (let  [response   (client/request request)
+         status     (:status response)]
+    (case status
+      200 (as-> response <>
+            (:body <>)
+            (json/read-str <> :key-fn keyword)
+            (map constructor <>))
+      204 true
+
+      ;; Default
+      false)))
+
+(defn- defer-request
+  "Defers an API request to a later time due to API rate limits.."
+  [time-to-wait endpoint-key request constructor]
+  (at/after time-to-wait
+            #(log/info (send-api-request endpoint-key request constructor true))
+            rate-limit-pool))
 
 (defn discord-request
   "General wrapper function for handling requests to the discord APIs.
@@ -191,16 +229,20 @@
   [endpoint-key auth & {:keys [json params args constructor] :or {constructor identity} :as opts}]
   (let [{:keys [endpoint method]} (get-endpoint endpoint-key opts)
         request                   (build-request endpoint method auth json params)]
-    (try
-      (let [result (client/request request)]
-        (condp = (:status result)
-          200 (as-> result <>
-                   (:body <>)
-                   (json/read-str <> :key-fn keyword)
-                   (map constructor <>))
-          204 true
-          result))
-      (catch Exception e (log/error e)))))
+    (try+
+      (send-api-request endpoint-key request constructor false)
+
+      ;; Handle a 429, Rate Limit, exception
+      (catch [:status 429] {:keys [headers body]}
+        (let [rate-limit-info (json/read-str body)
+              time-to-wait (get rate-limit-info "retry_after")]
+          (log/info (format "Rate limited by API, waiting for %d milliseconds." time-to-wait))
+          (defer-request time-to-wait endpoint-key request constructor)))
+
+      ;; Log any other errors taht we encounter
+      (catch Exception e
+        (log/error e)
+        false))))
 
 ;;; Managing messages
 (defn send-message [auth channel content & {:keys [tts embed]}]

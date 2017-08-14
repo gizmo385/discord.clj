@@ -8,6 +8,7 @@
                  [org.clojure/tools.logging "0.4.0"]
                  [org.clojure/data.json "0.2.6"]
                  [clj-http "3.6.1"]
+                 [overtone/at-at "1.2.0"]
                  [stylefruits/gniazdo "1.0.0"]]
   :main ^:skip-aot discord.core
   :target-path "target/%s"
