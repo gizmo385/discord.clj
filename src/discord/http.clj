@@ -25,12 +25,16 @@
      :permissions (:permissions server-map)
      :region      (get types/server-region (:region server-map))}))
 
-(defrecord User [id username bot? mfa-enabled? verified? roles deaf mute avatar joined
+(defrecord User [id username mention bot? mfa-enabled? verified? roles deaf mute avatar joined
                  discriminator])
 
 (defn build-user [user-map]
-  (map->User
-    {:deaf          (:deaf user-map)
+  (let [user-id (-> user-map :user :id)
+        mention (str \@ user-id)]
+    (map->User
+    {:id            user-id
+     :mention       mention
+     :deaf          (:deaf user-map)
      :mute          (:mute user-map)
      :roles         (:roles user-map)
      :joined        (:joined_at user-map)
@@ -38,9 +42,8 @@
      :mfa-enabled?  (-> user-map :user :mfa_enabled)
      :verified?     (-> user-map :user :verified)
      :username      (-> user-map :user :username)
-     :id            (-> user-map :user :id)
      :avatar        (-> user-map :user :avatar)
-     :discriminator (-> user-map :user :discriminator)}))
+     :discriminator (-> user-map :user :discriminator)})))
 
 (defrecord Channel [id guild-id name type position topic])
 
