@@ -136,6 +136,33 @@
   (if (seq documentation)
     (swap! global-cog-docs assoc cog-name documentation)))
 
+(defn- build-default-cog-method
+  [cog-name]
+  `(defmethod ~cog-name :default [_# message#]
+     (say (format "Unrecognized command for %s: %s"
+                  ~(name cog-name)
+                  (-> message# :content utils/words first)))))
+
+(defn- build-subcog-body
+  [cog-name client-param message-param dispatch-val & body]
+  `(let [command-doc#  ~(if (string? (first body))
+                          `(format "\t%s: %s\n" ~(name dispatch-val) ~(first body))
+                          `(format "\t%s\n" ~(name dispatch-val)))]
+     ;; Add documentation for this command to the multimethod documentation
+     (alter-meta!
+       (var ~cog-name)
+       (fn [current-val#]
+         (let [current-doc# (:doc current-val#)]
+           (assoc current-val# :doc (str current-doc# command-doc#)))))
+
+     ;; Define the method for this particular dispatch value
+     (defmethod ~cog-name ~dispatch-val [~client-param ~message-param]
+       ;; If docstring is provided to the command, we need to skip the first argument in
+       ;; the implementation
+       ~(if (string? (first body))
+          `(do ~@(rest body))
+          `(do ~@body)))))
+
 (defmacro defcog
   "Defines a multi-method with the supplied name with a 2-arity dispatch function which dispatches
    based upon the first word in the message. It also defines a :default which responds back with an
@@ -197,10 +224,7 @@
        (register-cog! ~(keyword cog-name) ~cog-name ~options)
 
        ;; Supply a "default" error message responding back with an unknown command message
-       (defmethod ~cog-name :default [_# message#]
-         (say (format "Unrecognized command for %s: %s"
-                      ~(name cog-name)
-                      (-> message# :content utils/words first))))
+       ~(build-default-cog-method cog-name)
 
        ;; Add the docstring and the arglist to this command
        (alter-meta! (var ~cog-name) assoc
@@ -209,28 +233,9 @@
 
        ;; Build the method implementations
        ~@(for [[dispatch-val & body] impls]
-           ;; Alter the documentation meta to include this subcommand
-           `(let [command-doc#  ~(if (string? (first body))
-                                   `(format "\t%s: %s\n" ~(name dispatch-val) ~(first body))
-                                   `(format "\t%s\n" ~(name dispatch-val)))]
-              ;; Add documentation for this command to the multimethod documentation
-              (alter-meta!
-                (var ~cog-name)
-                (fn [current-val#]
-                  (let [current-doc# (:doc current-val#)]
-                    (assoc current-val# :doc (str current-doc# command-doc#)))))
+           (apply build-subcog-body cog-name client-param message-param dispatch-val body))
 
-              ;; Define the method for this particular dispatch value
-              (defmethod ~cog-name ~dispatch-val [~client-param ~message-param]
-                ;; If docstring is provided to the command, we need to skip the first argument in
-                ;; the implementation
-                ~(if (string? (first body))
-                   `(do ~@(rest body))
-                   `(do ~@body)))))
-
-       (log/info (format "Registering docs: %s -> %s"
-                         ~(keyword cog-name)
-                         (-> (var ~cog-name) meta :doc)))
+       ;; Register the documentation for the cog
        (register-cog-docs!
          ~(keyword cog-name)
          (-> (var ~cog-name) meta :doc)))))
