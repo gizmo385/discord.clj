@@ -191,7 +191,7 @@
 
 (defn- send-api-request
   "Sends a request to the Discord API and handles the response."
-  [endpoint-key request constructor repeat-request?]
+  [request constructor]
   (let  [response   (client/request request)
          status     (:status response)]
     (case status
@@ -226,7 +226,7 @@
   (let [{:keys [endpoint method]} (get-endpoint endpoint-key opts)
         request                   (build-request endpoint method auth json params)]
     (try+
-      (send-api-request endpoint-key request constructor false)
+      (send-api-request request constructor)
 
       ;; Handle an API rate limit (return code 429)
       (catch [:status 429] {:keys [body]}
