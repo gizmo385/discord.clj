@@ -1,6 +1,8 @@
 (ns discord.config
   (:require [clojure.data.json :as json]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io]
+            [clojure.tools.logging :as log])
+  (:import [java.io IOException]))
 
 (defonce global-bot-settings "data/settings/settings.json")
 
@@ -14,20 +16,38 @@
   (spit filename (json/write-str data)))
 
 (defmethod file-io :load [filename _]
-  (json/read-str (slurp filename) :key-fn keyword))
+  (try
+    (json/read-str (slurp filename) :key-fn keyword)
+    (catch IOException ioe
+      (log/error ioe)
+      [])))
 
 (defmethod file-io :check [filename _]
-  (.exists (io/as-file filename)))
+  (let [f (io/as-file filename)]
+    (if (not (.exists f))
+      (do
+        ;; Create the parent directories
+        (->> f
+             (.getParentFile)
+             (.getAbsolutePath)
+             (io/file)
+             (.mkdirs))
+        (.createNewFile f)))
+    (.exists f)))
 
 
-(defn get-prefix []
-  (:prefix (file-io global-bot-settings :load)))
+(defn get-prefix
+  ([] (get-prefix global-bot-settings))
+  ([filename] (:prefix (file-io filename :load))))
 
-(defn get-bot-name []
-  (:bot-name (file-io global-bot-settings :load)))
+(defn get-bot-name
+  ([] (get-bot-name global-bot-settings))
+  ([filename] (:bot-name (file-io filename :load))))
 
-(defn get-cog-folders []
-  (:cog-folders (file-io global-bot-settings :load)))
+(defn get-cog-folders
+  ([] (get-cog-folders global-bot-settings))
+  ([filename] (:cog-folders (file-io filename :load))))
 
-(defn get-token []
-  (:token (file-io global-bot-settings :load)))
+(defn get-token
+  ([] (get-token global-bot-settings))
+  ([filename] (:token (file-io filename :load))))
