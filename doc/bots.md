@@ -58,6 +58,10 @@ Example:
 }
 ```
 
+For the `cog-folders` configuration variable, it should be noted that any and all clojure files in
+those directories will be loaded. Care should be taken when loading cogs and handlers from untrusted
+3rd parties.
+
 ###### my_cool_bot/src/core.clj:
 ```Clojure
 (ns my-cool-bot.core
@@ -132,3 +136,68 @@ shown above:
 
 For a simple bot or for quick experimentation, this method is a lot quicker for creating new bots,
 but it is also less extensible and grows quickly in comparison to the method described above.
+
+## Custom Message Handlers
+
+For a lot of extension that you might want to supply to your server, simple call and response
+mechanisms based on a predefined prefix won't work. In a lot of cases, you want to intercept all
+messages making there way to the server and check for something in that message. For the sake of
+example, let's say you run a server that is against pancakes and you want to implement something to
+prevent your server patrons from talking about pancakes.
+
+To do this, we'll implement a message handler that checks for the presence of "pancake" in server
+messages and deletes them:
+
+```Clojure
+(ns discord.cogs.no-swearing
+  (:require [clojure.core.async :refer [go >!] :as async]
+            [clojure.string :refer [starts-with?] :as s]
+            [discord.bot :as bot]
+            [discord.config :as config]
+            [discord.constants :as const]
+            [discord.http :as http]
+            [discord.utils :as utils]))
+
+;;; Define the list of blocked words
+(defonce BLOCKED-WORDS
+  ["pancake"])
+
+(defn- check-message
+  "Scans message text to determine if any blocked words are used."
+  [message-text]
+  (let [message (s/lower-case message-text)]
+    (some true?
+          (for [blocked-word BLOCKED-WORDS]
+            (s/includes? message blocked-word)))))
+
+(bot/defhandler no-pancakes-handler [prefix client message]
+  (let [message-content (:content message)
+        message-channel (:channel message)
+        send-channel (:send-channel client)
+        needs-deletion? (check-message message-content)]
+    (if needs-deletion?
+      (do
+        (http/delete-message client message-channel message)
+        (go (>! send-channel {:channel message-channel
+                              :content "The use of :pancakes: in our server is strictly prohibited!"
+                              :options {}}))))))
+```
+This custom handler is pretty straightforward. For every message that the bot receives, it is
+checking to see if the word "pancake" is in the message. If it is, then it will delete the message
+and send that user a warning saying that they should behave themselves.
+
+A more complicated handler implementation can be seen in the implementation of the 'alias'
+functionality, which is defined in
+[this cog file](https://github.com/gizmo385/discord.clj/blob/master/src/discord/cogs/alias.clj).
+This only does this handler looks for aliases that have been pre-registered and the sends the
+command that the alias corresponds to back to the client's receive channel. Once in the receive
+channel, it will be treated like any other message received by the bot and travel through the same
+message pipeline.
+
+A custom message handler takes 3 arguments:
+1. The prefix that is being used for passing messages to cogs.
+2. The client being used to communicate with Discord.
+3. The message that was received.
+
+Once a custom message handler is defined, any normal text messages sent to text channels that the
+bot is a part of will be additionally sent through the message handler.
