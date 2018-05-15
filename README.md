@@ -4,7 +4,7 @@ discord.clj is a [Clojure](https://clojure.org/) wrapper around the [Discord
 APIs](https://discordapp.com/developers/docs/intro). This library was written to ease in the
 creation of Discord bots in Clojure.
 
-This library is currently a work in progress and not production-ready in any sense of the term. The goal is to implement a [fully-compliant](https://gist.github.com/meew0/bbbbd5348967dee5f7e84c0cd58983fd) Discord API wrapper.
+This library is currently a work in progress and not production-ready in any sense of the term. The goal is to implement a [fully-compliant](https://gist.github.com/meew0/bbbbd5348967dee5f7e84c0cd58983fd) Discord API wrapper. This library is heavily influenced by [discord.py](https://github.com/Rapptz/discord.py).
 
 ## Installation
 
