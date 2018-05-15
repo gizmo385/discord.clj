@@ -17,7 +17,7 @@
           (for [blocked-word BLOCKED-WORDS]
             (s/includes? message blocked-word)))))
 
-(bot/defhandler alias-message-handler [prefix client message]
+(bot/defhandler no-swearing-handler [prefix client message]
   (let [message-content (:content message)
         message-channel (:channel message)
         send-channel (:send-channel client)
