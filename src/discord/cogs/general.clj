@@ -72,3 +72,14 @@
           [:scissors :paper]      (bot/say ":newspaper: You win! :newspaper:")))
       (bot/say "Please choose either rock, paper, or scissors."))
     (bot/say "Please choose either rock, paper, or scissors.")))
+
+(bot/defcommand count [client message]
+  (if-let [potential-number (not-empty (:content message))]
+    (try
+      (let [count-limit (Integer/parseInt potential-number)]
+        (doseq [n (range count-limit)]
+          (bot/say (format "Number: %d" n))))
+      (catch NumberFormatException _
+        (bot/say "Error: Please supply a number!")))
+    (doseq [n (range 10)]
+          (bot/say (format "Number: %d" n)))))

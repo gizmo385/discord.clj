@@ -25,6 +25,24 @@
   (assoc message :content (-> message :content (s/replace-first command "") s/triml)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Custom Discord message handlers
+;;;
+;;; This allows the creation of more advanced plugins that directly intercept messages that in a
+;;; way that allows for more customized handling than what is available through cogs.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defonce message-handlers (atom []))
+
+(defn add-handler! [handler]
+  (swap! message-handlers conj handler))
+
+(defn get-handlers [] @message-handlers)
+
+(defmacro defhandler [handler-name [prefix-param client-param message-param] & body]
+  `(do
+     (defn ~handler-name [~prefix-param ~client-param ~message-param] ~@body)
+     (add-handler! ~handler-name)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Patch functions exposed to bot developers:
 ;;;
 ;;; Patch functions that get exposed dynamically to clients within bot handler functions. These
@@ -45,20 +63,24 @@
   (let [dm-channel (http/create-dm-channel auth user)]
     (go (>! send-channel {:channel dm-channel :content content :options {}}))))
 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; General bot definition and cog/extension dispatch building
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn- send-general-help-message
-  [client extensions])
-
 (defn- dispatch-to-handlers
-  "Dispatches to relevant function handlers when the the messages starts with <prefix><command>."
+  "Dispatches to the currently registered user message handlers."
+  [prefix client message]
+  (let [handlers (get-handlers)]
+    (doseq [handler handlers]
+      (handler prefix client message))))
+
+(defn- dispatch-to-extensions
+  "Dispatches to the supplied extensions."
   [client message prefix extensions]
   (doseq [{:keys [command handler] :as ext} extensions]
     (let [command-string (str prefix (name command))]
       (if (starts-with? (:content message) command-string)
-        (do
-          (handler client (trim-message-command message command-string)))))))
+        (handler client (trim-message-command message command-string))))))
 
 (defn- build-handler-fn
   "Builds a handler around a set of extensions and rebinds 'say' to send to the message source"
@@ -70,8 +92,16 @@
     (binding [say     (partial say* (:send-channel client) (:channel message))
               delete  (partial http/delete-message client (:channel message))
               pm      (partial pm* client (:send-channel client) (get-in message [:author :id]))]
+
+      ;; If the message starts with the bot prefix, we'll dispatch to any cog extensions that have
+      ;; been installed
       (if (-> message :content (starts-with? prefix))
-        (dispatch-to-handlers client message prefix extensions)))))
+        (dispatch-to-extensions client message prefix extensions))
+
+      ;; For every message, we'll dispatch to the handlers. This allows for more sophisticated
+      ;; handling of messages that don't necessarily match the prefix (i.e. matching deleting
+      ;; messages with swear words).
+      (dispatch-to-handlers prefix client message))))
 
 
 ;;; General bot creation
@@ -93,9 +123,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Defining a bot and its cogs inline
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn build-extensions-syntax
+(defn build-quoted-extensions
   ([key-func-pairs]
-   (into [] (map (partial apply build-extensions-syntax)
+   (into [] (map (partial apply build-quoted-extensions)
                  (partition 2 key-func-pairs))))
   ([fn-key fn-body]
    `(map->Extension {:command ~fn-key
@@ -105,18 +135,18 @@
                      :handler ~fn-body
                      :options ~command-options})))
 
-(defmacro open-with-cogs
+(defmacro with-cogs
   "Given a name, prefix and series of :keyword-function pairs, builds a new bot inside of a
    with-open block that will sleep the while background threads manage the bot."
   [bot-name prefix & key-func-pairs]
-  `(with-open [bot# (create-bot ~bot-name ~(build-extensions-syntax key-func-pairs) ~prefix)]
+  `(with-open [bot# (create-bot ~bot-name ~(build-quoted-extensions key-func-pairs) ~prefix)]
      (while true (Thread/sleep 3000))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Defining global cogs and commands that get loaded dynamically on bot startup
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defonce global-cog-registry (atom (list)))
-(defonce global-cog-docs (atom {}))
+(defonce extension-registry (atom (list)))
+(defonce extension-docs (atom {}))
 
 (defn register-cog!
   ;; Cog without options
@@ -124,17 +154,18 @@
    (let [cog-map {:command  cog-name
                   :handler  cog-function
                   :options  nil}]
-     (swap! global-cog-registry conj cog-map)))
+     (swap! extension-registry conj cog-map)))
+
   ;; Cog with options
   ([cog-name cog-function cog-options]
    (let [cog-map {:command  cog-name
                   :handler  cog-function
                   :options  cog-options}]
-     (swap! global-cog-registry conj cog-map))))
+     (swap! extension-registry conj cog-map))))
 
 (defn register-cog-docs! [cog-name documentation]
   (if (seq documentation)
-    (swap! global-cog-docs assoc cog-name documentation)))
+    (swap! extension-docs assoc cog-name documentation)))
 
 (defn- build-default-cog-method
   [cog-name]
@@ -302,12 +333,12 @@
 (defn build-extensions [key-func-pairs]
   (into [] (map (partial apply create-extension) key-func-pairs)))
 
-(defn get-registry-extensions
-  "Returns the current global-cog-registry as a list of Extensions."
+(defn get-registered-extensions
+  "Returns the current extension-registry as a list of Extensions."
   []
-  (map map->Extension @global-cog-registry))
+  (map map->Extension @extension-registry))
 
-(defmacro with-file-cogs
+(defmacro from-files
   "Creates a bot where the cogs are those present in all Clojure files present in the directories
    supplied. This allows you to dynamically add files to a cogs/ directory and have them get
    automatically loaded by the bot when it starts up."
@@ -318,7 +349,7 @@
        (load-clojure-files-in-folder! folder#))
 
      ;; Opens a bot with those extensions
-     (let [cogs# (get-registry-extensions)]
+     (let [cogs# (get-registered-extensions)]
        (log/info (format "Loaded %d cogs: %s."
                          (count cogs#)
                          (s/join ", " (map :command cogs#))))
@@ -333,9 +364,9 @@
   "Look at help information for the available cogs."
   (let [doc-separator (s/join (repeat 100 "-"))
         command-docs  (s/join \newline
-                              (for [[c d] @global-cog-docs]
-                                (format "%s\n%s: %s" doc-separator (name c) d)))]
+                              (for [[c d]  extension-docs]
+                                (format "%s: %s" (name c) d)))]
     (if (seq command-docs)
       (pm (format "Commands:\n%s\n%s" command-docs doc-separator))
-      (let [commands (s/join ", " (map (comp name :command) @global-cog-registry))]
+      (let [commands (s/join ", " (map (comp name :command) @extension-registry))]
         (pm (format "Commands: %s" commands))))))
