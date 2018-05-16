@@ -23,7 +23,7 @@
   (let [last-loaded @last-loaded-aliases
         now (System/currentTimeMillis)]
     (and (some? last-loaded)
-         (< (- now last-loaded) (* 5 const/MILLISECONDS-IN-SECOND)))))
+         (< (- now last-loaded) (* 5 const/MILLISECONDS-IN-MINUTE)))))
 
 (defn- get-aliases []
   (if (alias-cache-fresh?)
