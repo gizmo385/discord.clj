@@ -3,11 +3,9 @@
             [clojure.java.io :as io]
             [clojure.core.async :refer [go >!] :as async]
             [clojure.tools.logging :as log]
-            [clojure.repl :refer [doc]]
             [discord.client :as client]
             [discord.config :as config]
             [discord.http :as http]
-            [discord.types :as types]
             [discord.utils :as utils])
   (:import [discord.types ConfigurationAuth]))
 
@@ -96,12 +94,14 @@
       ;; If the message starts with the bot prefix, we'll dispatch to any cog extensions that have
       ;; been installed
       (if (-> message :content (starts-with? prefix))
-        (dispatch-to-extensions client message prefix extensions))
+        (go
+          (dispatch-to-extensions client message prefix extensions)))
 
       ;; For every message, we'll dispatch to the handlers. This allows for more sophisticated
       ;; handling of messages that don't necessarily match the prefix (i.e. matching deleting
       ;; messages with swear words).
-      (dispatch-to-handlers prefix client message))))
+      (go
+        (dispatch-to-handlers prefix client message)))))
 
 
 ;;; General bot creation
