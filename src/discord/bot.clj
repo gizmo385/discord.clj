@@ -35,10 +35,16 @@
 
 (defn get-handlers [] @message-handlers)
 
-(defmacro defhandler [handler-name [prefix-param client-param message-param] & body]
-  `(do
-     (defn ~handler-name [~prefix-param ~client-param ~message-param] ~@body)
-     (add-handler! ~handler-name)))
+(defmacro defhandler
+  "This is used to create custom message handlers, for which all messages received by the bot will
+   be passed through. This is used f or the creation of advanced bot functionality such as automatic
+   moderation, alias creation, etc."
+  [handler-name [prefix-param client-param message-param] & body]
+  (let [handler-fn-name (gensym (name handler-name))]
+   `(do
+      (log/infof "Register custom message handler: %s" ~(name handler-name))
+      (defn ~handler-fn-name [~prefix-param ~client-param ~message-param] ~@body)
+      (add-handler! ~handler-fn-name))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Patch functions exposed to bot developers:
@@ -117,7 +123,7 @@
   ([bot-name extensions prefix auth]
    (let [handler          (build-handler-fn prefix extensions)
          discord-client   (client/create-discord-client auth handler)]
-     (log/info (format "Creating bot with prefix: %s" prefix))
+     (log/infof "Creating bot with prefix: %s" prefix)
      (DiscordBot. bot-name extensions prefix discord-client))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -244,32 +250,36 @@
                       {})
         impls       (if (map? (first impls))
                       (rest impls)
-                      impls)]
+                      impls)
+
+        ;; The last thing that we want to do is gensym on the cog name. This will prevent the
+        ;; defined cogs from overshadowing existing functions and causing problems down the line.
+        cog-fn-name (gensym cog-name)]
     `(do
        ;; Define the multimethod
-       (defmulti ~(with-meta cog-name m)
+       (defmulti ~(with-meta cog-fn-name m)
          (fn [client# message#]
            (-> message# :content utils/words first keyword)))
 
        ;; Register the cog with the global cog hierarchy
-       (register-cog! ~(keyword cog-name) ~cog-name ~options)
+       (register-cog! ~(keyword cog-name) ~cog-fn-name ~options)
 
        ;; Supply a "default" error message responding back with an unknown command message
-       ~(build-default-cog-method cog-name)
+       ~(build-default-cog-method cog-fn-name)
 
        ;; Add the docstring and the arglist to this command
-       (alter-meta! (var ~cog-name) assoc
+       (alter-meta! (var ~cog-fn-name) assoc
                     :doc      (str ~docstring? "\n\nAvailable Subcommands:\n")
                     :arglists (quote ([~client-param ~message-param])))
 
        ;; Build the method implementations
        ~@(for [[dispatch-val & body] impls]
-           (apply build-subcog-body cog-name client-param message-param dispatch-val body))
+           (apply build-subcog-body cog-fn-name client-param message-param dispatch-val body))
 
        ;; Register the documentation for the cog
        (register-cog-docs!
          ~(keyword cog-name)
-         (-> (var ~cog-name) meta :doc)))))
+         (-> (var ~cog-fn-name) meta :doc)))))
 
 (defmacro defcommand
   "Defines a one-off command and adds that to the global cog registry. This is a single function
@@ -292,21 +302,22 @@
   {:arglists '([command [client-param message-param] docstring? options? & command-body])}
   [command [client-param message-param :as arg-vector] & command-body]
   ;; Try and parse out some of the options that can be supplied to the command
-  (let [m             (if (string? (first command-body))
-                        {:doc (first command-body)}
-                        {})
-        command-body  (if (string? (first command-body))
-                        (rest command-body)
-                        command-body)
-        options       (if (map? (first command-body))
-                        (first command-body)
-                        {})
-        command-body  (if (map? (first command-body))
-                        (rest command-body)
-                        command-body)]
+  (let [m               (if (string? (first command-body))
+                          {:doc (first command-body)}
+                          {})
+        command-body    (if (string? (first command-body))
+                          (rest command-body)
+                          command-body)
+        options         (if (map? (first command-body))
+                          (first command-body)
+                          {})
+        command-body    (if (map? (first command-body))
+                          (rest command-body)
+                          command-body)
+        command-fn-name (gensym command)]
     `(do
-       (defn ~(with-meta command m) [~client-param ~message-param] ~@command-body)
-       (register-cog! ~(keyword command) ~command ~options)
+       (defn ~(with-meta command-fn-name m) [~client-param ~message-param] ~@command-body)
+       (register-cog! ~(keyword command) ~command-fn-name ~options)
        (if (:doc ~m)
          (register-cog-docs! ~(keyword command) ~(:doc m))))))
 
@@ -321,7 +332,7 @@
                            (filter (fn [f] (ends-with? f ".clj"))))]
     (doseq [file clojure-files]
       (let [filename (.getAbsolutePath file)]
-        (log/info (format "Loading cogs from: %s" filename))
+        (log/infof "Loading cogs from: %s" filename)
         (load-file filename)))))
 
 
@@ -350,9 +361,7 @@
 
      ;; Opens a bot with those extensions
      (let [cogs# (get-registered-extensions)]
-       (log/info (format "Loaded %d cogs: %s."
-                         (count cogs#)
-                         (s/join ", " (map :command cogs#))))
+       (log/infof "Loaded %d cogs: %s." (count cogs#) (s/join ", " (map :command cogs#)))
        (with-open [discord-bot# (create-bot ~bot-name cogs# ~prefix)]
          (while true (Thread/sleep 3000))))))
 
