@@ -17,10 +17,16 @@
 ;;; This simple configuration implementation is for bots that just use the standard configuration
 ;;; file for their Discord auth token. A different Authenticated implementation can be supplied if
 ;;; desired
-(defrecord ConfigurationAuth []
+(defrecord SimpleAuth [auth-token]
   Authenticated
-  (token [_] (config/get-token))
+  (token [_] auth-token)
   (token-type [_] "Bot"))
+
+(defn configuration-auth
+  "Creates a Simple authentication record that uses the token specified in the settings file."
+  []
+  (let [auth-token (config/get-token)]
+    (SimpleAuth. auth-token)))
 
 ;;; Mapping the returns from the Discord API enumerated types into Clojure keywords
 (defonce channel-type

@@ -6,8 +6,8 @@
             [discord.client :as client]
             [discord.config :as config]
             [discord.http :as http]
-            [discord.utils :as utils])
-  (:import [discord.types ConfigurationAuth]))
+            [discord.utils :as utils]
+            [discord.types :as types]))
 
 ;;; Defining what an Extension and a Bot is
 (defrecord Extension [command handler options])
@@ -115,10 +115,10 @@
   "Creates a bot that will dynamically dispatch to different extensions based on <prefix><command>
    style messages."
   ([bot-name extensions]
-   (create-bot bot-name extensions (config/get-prefix) (ConfigurationAuth.)))
+   (create-bot bot-name extensions (config/get-prefix) (types/configuration-auth)))
 
   ([bot-name extensions prefix]
-   (create-bot bot-name extensions prefix (ConfigurationAuth.)))
+   (create-bot bot-name extensions prefix (types/configuration-auth)))
 
   ([bot-name extensions prefix auth]
    (let [handler          (build-handler-fn prefix extensions)

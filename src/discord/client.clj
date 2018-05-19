@@ -3,8 +3,7 @@
             [taoensso.timbre :as timbre]
             [discord.gateway :refer [Gateway] :as gw]
             [discord.http :as http]
-            [discord.types :refer [Authenticated] :as types])
-  (:import [discord.types ConfigurationAuth]))
+            [discord.types :refer [Authenticated] :as types]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Representing a Discord client connected to the Discord server
@@ -48,7 +47,7 @@
       send-channel : Channel - The asynchronous channel to send messages to.
       receive-channel : Channel - The asynchronous channel to send messages from."
   ([message-handler]
-   (let [default-auth (ConfigurationAuth.)]
+   (let [default-auth (types/configuration-auth)]
      (create-discord-client default-auth message-handler)))
 
   ([auth message-handler & {:keys [send-channel receive-channel] :as options}]
