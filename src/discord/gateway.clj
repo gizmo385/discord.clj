@@ -153,7 +153,7 @@
 
 (defmethod handle-gateway-message :default
   [discord-message gateway receive-chan]
-  (log/infof format "Unknown message of type %s received: " (keyword (:t discord-message))))
+  (log/infof "Unknown message of type %s received: %s" (keyword (:t discord-message)) discord-message))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
