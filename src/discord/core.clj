@@ -1,10 +1,6 @@
 (ns discord.core
-  (:require [clojure.tools.logging :as log]
-            [clojure.string :as s]
-            [discord.bot :refer [say delete] :as bot]
-            [discord.config :as config]
-            [discord.utils :as utils]
-            [discord.http :as http])
+  (:require [discord.bot :as bot]
+            [discord.config :as config])
   (:gen-class))
 
 (defn -main

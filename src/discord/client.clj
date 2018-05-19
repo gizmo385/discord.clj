@@ -1,6 +1,6 @@
 (ns discord.client
   (:require [clojure.core.async :refer [<! >! close! go go-loop] :as async]
-            [clojure.tools.logging :as log]
+            [taoensso.timbre :as timbre]
             [discord.gateway :refer [Gateway] :as gw]
             [discord.http :as http]
             [discord.types :refer [Authenticated] :as types])
@@ -66,7 +66,7 @@
          (if (-> message :author :bot? not)
            (try
              (message-handler client message)
-             (catch Exception e (log/errorf "Error handling message: %s" e))))
+             (catch Exception e (timbre/errorf "Error handling message: %s" e))))
          (throw (Exception. "Discord Client's receive channel was closed unexpectedly!")))
        (recur))
 

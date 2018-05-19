@@ -2,7 +2,7 @@
   (:require [clojure.string :refer [starts-with? ends-with?] :as s]
             [clojure.java.io :as io]
             [clojure.core.async :refer [go >!] :as async]
-            [clojure.tools.logging :as log]
+            [taoensso.timbre :as timbre]
             [discord.client :as client]
             [discord.config :as config]
             [discord.http :as http]
@@ -42,7 +42,7 @@
   [handler-name [prefix-param client-param message-param] & body]
   (let [handler-fn-name (gensym (name handler-name))]
    `(do
-      (log/infof "Register custom message handler: %s" ~(name handler-name))
+      (timbre/infof "Register custom message handler: %s" ~(name handler-name))
       (defn ~handler-fn-name [~prefix-param ~client-param ~message-param] ~@body)
       (add-handler! ~handler-fn-name))))
 
@@ -123,7 +123,7 @@
   ([bot-name extensions prefix auth]
    (let [handler          (build-handler-fn prefix extensions)
          discord-client   (client/create-discord-client auth handler)]
-     (log/infof "Creating bot with prefix: %s" prefix)
+     (timbre/infof "Creating bot with prefix: %s" prefix)
      (DiscordBot. bot-name extensions prefix discord-client))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -332,7 +332,7 @@
                            (filter (fn [f] (ends-with? f ".clj"))))]
     (doseq [file clojure-files]
       (let [filename (.getAbsolutePath file)]
-        (log/infof "Loading cogs from: %s" filename)
+        (timbre/infof "Loading cogs from: %s" filename)
         (load-file filename)))))
 
 
@@ -361,7 +361,7 @@
 
      ;; Opens a bot with those extensions
      (let [cogs# (get-registered-extensions)]
-       (log/infof "Loaded %d cogs: %s." (count cogs#) (s/join ", " (map :command cogs#)))
+       (timbre/infof "Loaded %d cogs: %s." (count cogs#) (s/join ", " (map :command cogs#)))
        (with-open [discord-bot# (create-bot ~bot-name cogs# ~prefix)]
          (while true (Thread/sleep 3000))))))
 

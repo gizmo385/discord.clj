@@ -1,7 +1,6 @@
 (ns discord.utils
   (:require [clojure.set :refer [map-invert]]
-            [clojure.string :as s]
-            [clojure.tools.logging :as log]))
+            [clojure.string :as s]))
 
 (defn get-id [object-or-id]
   (condp = (type object-or-id)

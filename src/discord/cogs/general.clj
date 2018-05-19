@@ -2,7 +2,6 @@
   (:require [discord.bot :as bot]
             [discord.http :as http]
             [discord.utils :as utils]
-            [clojure.tools.logging :as log]
             [clojure.string :as s]))
 
 (bot/defcommand say [client message]

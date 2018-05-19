@@ -1,10 +1,10 @@
 (ns discord.gateway
   "This implements the Discord Gateway protocol"
   (:require [clojure.core.async :refer [>! <! go go-loop] :as async]
-            [clojure.tools.logging :as log]
             [clojure.data.json :as json]
             [clojure.set :refer [map-invert]]
             [gniazdo.core :as ws]
+            [taoensso.timbre :as timbre]
             [discord.http :as http]
             [discord.types :refer [Authenticated] :as types]
             [discord.config :as config]))
@@ -99,7 +99,7 @@
   ;;; Handle the initial "HELLO" message, which sets the heartbeat-interval
   (let [new-heartbeat   (get-in discord-event [:d :heartbeat_interval])
         heartbeat-atom  (:heartbeat-interval gateway)]
-    (log/infof "Setting heartbeat interval to %d milliseconds" new-heartbeat)
+    (timbre/infof "Setting heartbeat interval to %d milliseconds" new-heartbeat)
     (reset! heartbeat-atom new-heartbeat)))
 
 ;;; Since there is nothing to do regarding a heartback ACK message, we'll just ignore it.
@@ -107,7 +107,7 @@
 
 (defmethod handle-gateway-control-event :default
   [discord-event gateway receive-chan]
-  (log/infof "Event of Type: %s" (message-code->name (:op discord-event))))
+  (timbre/infof "Event of Type: %s" (message-code->name (:op discord-event))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Handles non-control-flow messages from the Discord gateway. Any messages dealing with metadata
@@ -138,7 +138,7 @@
 
 (defmethod handle-gateway-message :HELLO
   [discord-message gateway receive-chan]
-  (log/info "RECEIVED HELLO MESSAGE"))
+  (timbre/info "RECEIVED HELLO MESSAGE"))
 
 ;;; If it's a user message, put it on the receive channel for parsing by the client
 (defmethod handle-gateway-message :MESSAGE_CREATE
@@ -153,7 +153,7 @@
 
 (defmethod handle-gateway-message :default
   [discord-message gateway receive-chan]
-  (log/infof "Unknown message of type %s received: %s" (keyword (:t discord-message)) discord-message))
+  (timbre/infof "Unknown message of type %s received: %s" (keyword (:t discord-message)) discord-message))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -233,10 +233,10 @@
       gateway-url
       :on-receive (fn [message]
                     (handle-message message gateway receive-channel))
-      :on-connect (fn [message] (log/info "Connected to Discord Gateway"))
-      :on-error   (fn [message] (log/errorf "Error: %s" message))
+      :on-connect (fn [message] (timbre/info "Connected to Discord Gateway"))
+      :on-error   (fn [message] (timbre/errorf "Error: %s" message))
       :on-close   (fn [status reason]
-                    (log/info "Connected closed, attempting to reconnect...")
+                    (timbre/info "Connected closed, attempting to reconnect...")
                     (reconnect-gateway gateway)))))
 
 ;;; There are a few elements of state that a Discord gateway connection needs to track, such as
@@ -269,7 +269,6 @@
 
     ;; Begin asynchronously sending heartbeat messages to the gateway
     (go-loop []
-      (log/info "Sending heartbeat message.")
       (send-heartbeat gateway seq-num)
       (<! (async/timeout @heartbeat-interval))
       (recur))

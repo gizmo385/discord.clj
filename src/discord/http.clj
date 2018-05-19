@@ -4,13 +4,13 @@
    human-readable keywords and implemented using the discord-request helper function. Exposed
    externally are functions such as get-channel, which perform the API requests and handle the
    transformation of the response into a more usable Clojure record."
-  (:require [clojure.tools.logging :as log]
-            [clojure.core.cache :as cache]
+  (:require [clojure.core.cache :as cache]
             [clojure.data.json :as json]
             [clojure.string :as s]
             [clj-http.client :as client]
             [overtone.at-at :as at]
             [slingshot.slingshot :refer [try+]]
+            [taoensso.timbre :as timbre]
             [discord.types :refer [Authenticated] :as types]
             [discord.utils :as utils])
   (:import [java.sql Timestamp]))
@@ -232,12 +232,12 @@
       (catch [:status 429] {:keys [body]}
         (let [rate-limit-info (json/read-str body)
               wait-time       (get rate-limit-info "retry_after")]
-          (log/info (format "Rate limited by API, waiting for %d milliseconds." wait-time))
+          (timbre/info (format "Rate limited by API, waiting for %d milliseconds." wait-time))
           (at/after wait-time #(send-api-request request constructor) rate-limit-pool)))
 
       ;; Log any other errors that we encounter
       (catch Exception e
-        (log/error e)
+        (timbre/error e)
         false))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

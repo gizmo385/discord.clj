@@ -1,7 +1,6 @@
 (ns discord.config
   (:require [clojure.data.json :as json]
-            [clojure.java.io :as io]
-            [clojure.tools.logging :as log])
+            [clojure.java.io :as io])
   (:import [java.io IOException]))
 
 (defonce global-bot-settings "data/settings/settings.json")

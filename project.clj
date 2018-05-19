@@ -5,7 +5,7 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.clojure/core.async "0.3.443"]
-                 [org.clojure/tools.logging "0.4.0"]
+                 [com.taoensso/timbre "4.10.0"]
                  [org.clojure/data.json "0.2.6"]
                  [clj-http "3.6.1"]
                  [overtone/at-at "1.2.0"]
