@@ -373,7 +373,7 @@
   "Look at help information for the available cogs."
   (let [doc-separator (s/join (repeat 100 "-"))
         command-docs  (s/join \newline
-                              (for [[c d]  extension-docs]
+                              (for [[c d] @extension-docs]
                                 (format "%s: %s" (name c) d)))]
     (if (seq command-docs)
       (pm (format "Commands:\n%s\n%s" command-docs doc-separator))
