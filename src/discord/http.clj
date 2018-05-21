@@ -12,8 +12,7 @@
             [slingshot.slingshot :refer [try+]]
             [taoensso.timbre :as timbre]
             [discord.types :refer [Authenticated] :as types]
-            [discord.utils :as utils])
-  (:import [java.sql Timestamp]))
+            [discord.utils :as utils]))
 
 ;;; Global constants for interacting with the API
 (defonce user-agent "DiscordBot (https://github.com/gizmo385/discord.clj)")
