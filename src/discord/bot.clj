@@ -62,7 +62,7 @@
   [send-channel channel content]
   (go (>! send-channel {:channel channel :content content :options {}})))
 
-(defn pm* [auth send-channel user content]
+(defn- pm* [auth send-channel user content]
   ;; Open up a DM channel with the recipient and then send them the message
   (let [dm-channel (http/create-dm-channel auth user)]
     (go (>! send-channel {:channel dm-channel :content content :options {}}))))
@@ -129,9 +129,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Defining a bot and its cogs inline
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn build-quoted-extensions
+(defn build-inline-cogs
   ([key-func-pairs]
-   (into [] (map (partial apply build-quoted-extensions)
+   (into [] (map (partial apply build-inline-cogs)
                  (partition 2 key-func-pairs))))
   ([fn-key fn-body]
    `(map->Extension {:command ~fn-key
@@ -145,7 +145,7 @@
   "Given a name, prefix and series of :keyword-function pairs, builds a new bot inside of a
    with-open block that will sleep the while background threads manage the bot."
   [bot-name prefix & key-func-pairs]
-  `(with-open [bot# (create-bot ~bot-name ~(build-quoted-extensions key-func-pairs) ~prefix)]
+  `(with-open [bot# (create-bot ~bot-name ~(build-inline-cogs key-func-pairs) ~prefix)]
      (while true (Thread/sleep 3000))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -322,19 +322,23 @@
          (register-cog-docs! ~(keyword command) ~(:doc m))))))
 
 ;;; Loading cogs from other files
+(defn get-clojure-files
+  "Given a directory, returns all '.clj' files in that folder."
+  [folder]
+  (->> folder
+       (io/file)
+       (file-seq)
+       (filter (fn [f] (ends-with? f ".clj")))
+       (map (fn [f] (.getAbsolutePath f)))))
+
 (defn load-clojure-files-in-folder!
   "Given a directory, loads all of the .clj files in that directory tree. This can be used to
    dynamically load cogs defined with defcog or manually calling register-cog! out of a folder."
   [folder]
-  (let [clojure-files (->> folder
-                           (io/file)
-                           (file-seq)
-                           (filter (fn [f] (ends-with? f ".clj"))))]
-    (doseq [file clojure-files]
-      (let [filename (.getAbsolutePath file)]
-        (timbre/infof "Loading cogs from: %s" filename)
-        (load-file filename)))))
-
+  (let [clojure-files (get-clojure-files folder)]
+    (doseq [filename clojure-files]
+      (timbre/infof "Loading cogs from: %s" filename)
+      (load-file filename))))
 
 (defn create-extension
   [command handler]
