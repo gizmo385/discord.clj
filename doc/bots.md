@@ -1,22 +1,22 @@
-# Creating Bots Using discord.clj
+; Creating Bots Using discord.clj
 
 Currently there are 2 ways of defining bots in discord.clj:
 
-## Using cog/ folders
+## Using extension/ folders
 
-You can break your cogs up into different folders and then have discord.clj load those by using the
-`with-file-cogs` macro in the `discord.bot` namespace.
+You can break your extensions up into different folders and then have discord.clj load those by using the
+`with-file-extensions` macro in the `discord.bot` namespace.
 
 Example:
 
-###### /path/to/cogs/admin.clj:
+###### /path/to/extensions/admin.clj:
 ```Clojure
-(ns path.to.cogs.admin
+(ns path.to.extensions.admin
   (:require [discord.bot :as bot]
             [discord.http :as http]
             [discord.utils :as utils]))
 
-(bot/defcog admin [client message]
+(bot/defextension admin [client message]
   ;; Kick the users mentioned in the message
   (:kick
     (doseq [user (:user-mentions message)]
@@ -32,9 +32,9 @@ Example:
         (http/send-message client server bcast-message)))))
 ```
 
-###### /path/to/cogs/general.clj:
+###### /path/to/extensions/general.clj:
 ```Clojure
-(ns path.to.cogs.admin
+(ns path.to.extensions.admin
   (:require [discord.bot :as bot]))
 
 ;;; The defcommand macro is great for one-off functions you wish to expose on the bot
@@ -52,14 +52,14 @@ Example:
     "token" : "auth-token",
     "prefix" : "^",
     "bot-name" : "bot-name",
-    "cog-folders" : [
-        "path/to/cogs"
+    "extension-folders" : [
+        "path/to/extensions"
     ]
 }
 ```
 
-For the `cog-folders` configuration variable, it should be noted that any and all clojure files in
-those directories will be loaded. Care should be taken when loading cogs and handlers from untrusted
+For the `extension-folders` configuration variable, it should be noted that any and all clojure files in
+those directories will be loaded. Care should be taken when loading extensions and handlers from untrusted
 3rd parties.
 
 ###### my_cool_bot/src/core.clj:
@@ -72,17 +72,17 @@ those directories will be loaded. Care should be taken when loading cogs and han
   [& args]
   (let [bot-name    (config/get-bot-name)
         prefix      (config/get-prefix)
-        cog-folders (config/get-cog-folders)]
-    (bot/with-file-cogs bot-name prefix cog-folders)))
+        extension-folders (config/get-extension-folders)]
+    (bot/with-file-extensions bot-name prefix extension-folders)))
 ```
 ---
 Running your bot now would result in logs similar to below:
 ```
 2017-07-12 00:50:04.037:INFO::main: Logging initialized @4920ms
 Jul 12, 2017 12:50:05 AM discord.bot invoke
-INFO: Loading cogs from: /path/to/cogs/admin.clj
+INFO: Loading extensions from: /path/to/extensions/admin.clj
 Jul 12, 2017 12:50:05 AM discord.core invoke
-INFO: Loaded 1 cogs: admin
+INFO: Loaded 1 extensions: admin
 Jul 12, 2017 12:50:06 AM discord.gateway invoke
 INFO: Connected to Discord Gateway
 Jul 12, 2017 12:50:06 AM discord.gateway invoke
@@ -94,7 +94,7 @@ INFO: Creating bot with prefix: ^
 ## Defining Inline
 
 The alternative to splitting up your defintions is to define things inline using the
-`open-with-cogs` macro defined in the `discord.bot` namespace. Below is an equivalent to the bot
+`open-with-extensions` macro defined in the `discord.bot` namespace. Below is an equivalent to the bot
 shown above:
 
 ###### my_cool_bot/src/core.clj:
@@ -106,8 +106,8 @@ shown above:
             [discord.utils :as utils]
             [discord.http :as http]))
 
-;;; The admin cog
-(bot/defcog admin-cog [client message]
+;;; The admin extension
+(bot/defextension admin-extension [client message]
   (:kick
     (doseq [user (:user-mentions message)]
       (let [user-id (:id user)
@@ -124,14 +124,14 @@ shown above:
 (defn -main
   "Creates a new discord bot and supplies a series of extensions to it."
   [& args]
-  (bot/open-with-cogs
+  (bot/open-with-extensions
     "TestDiscordBot" "^"
     :botsay (fn [client message]
               (say (:content message))
               (delete message))
     :working (fn [_ _]
                (say "https://giphy.com/gifs/9K2nFglCAQClO"))
-    :admin  admin-cog))
+    :admin  admin-extension))
 ```
 
 For a simple bot or for quick experimentation, this method is a lot quicker for creating new bots,
@@ -149,7 +149,7 @@ To do this, we'll implement a message handler that checks for the presence of "p
 messages and deletes them:
 
 ```Clojure
-(ns discord.cogs.no-swearing
+(ns discord.extensions.no-swearing
   (:require [clojure.core.async :refer [go >!] :as async]
             [clojure.string :refer [starts-with?] :as s]
             [discord.bot :as bot]
@@ -188,14 +188,14 @@ and send that user a warning saying that they should behave themselves.
 
 A more complicated handler implementation can be seen in the implementation of the 'alias'
 functionality, which is defined in
-[this cog file](https://github.com/gizmo385/discord.clj/blob/master/src/discord/cogs/alias.clj).
+[this extension file](https://github.com/gizmo385/discord.clj/blob/master/src/discord/extensions/alias.clj).
 This only does this handler looks for aliases that have been pre-registered and the sends the
 command that the alias corresponds to back to the client's receive channel. Once in the receive
 channel, it will be treated like any other message received by the bot and travel through the same
 message pipeline.
 
 A custom message handler takes 3 arguments:
-1. The prefix that is being used for passing messages to cogs.
+1. The prefix that is being used for passing messages to extensions.
 2. The client being used to communicate with Discord.
 3. The message that was received.
 

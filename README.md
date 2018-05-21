@@ -36,8 +36,8 @@ Here is a dead-simple bot you can create using discord.clj:
             [discord.http :as http])
   (:gen-class))
 
-;;; Example Cog implementation for admin commands
-(bot/defcog admin-cog [client message]
+;;; Example extension implementation for admin commands
+(bot/defextension admin-extension [client message]
   ;; Kicks all users mentioned in the messagj
   (:kick
     (doseq [user (:user-mentions message)]
@@ -56,7 +56,7 @@ Here is a dead-simple bot you can create using discord.clj:
 (defn -main
   "Creates a new discord bot and supplies a series of extensions to it."
   [& args]
-  (bot/open-with-cogs
+  (bot/open-with-extensions
     "TestDiscordBot" "^"
     :say    (fn [client message]
               (say (:content message)))
@@ -65,7 +65,7 @@ Here is a dead-simple bot you can create using discord.clj:
               (delete message))
     :greet  (fn [_ _]
               (say "HELLO EVERYONE"))
-    :admin  admin-cog))
+    :admin  admin-extension))
 ```
 
 For more examples, check out the /docs folder for walkthroughs on how to create a bot.

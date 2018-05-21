@@ -1,4 +1,4 @@
-(ns discord.cogs.general
+(ns discord.extensions.general
   (:require [discord.bot :as bot]
             [discord.http :as http]
             [discord.utils :as utils]

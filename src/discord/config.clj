@@ -42,9 +42,9 @@
   ([] (get-bot-name global-bot-settings))
   ([filename] (:bot-name (file-io filename :load))))
 
-(defn get-cog-folders
-  ([] (get-cog-folders global-bot-settings))
-  ([filename] (:cog-folders (file-io filename :load))))
+(defn get-extension-folders
+  ([] (get-extension-folders global-bot-settings))
+  ([filename] (:extension-folders (file-io filename :load))))
 
 (defn get-token
   ([] (get-token global-bot-settings))

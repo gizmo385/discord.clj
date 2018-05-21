@@ -1,4 +1,4 @@
-(ns discord.cogs.admin
+(ns discord.extensions.admin
   (:require [clojure.string :as s]
             [clojure.pprint :refer [pprint]]
             [discord.bot :as bot]
@@ -6,7 +6,7 @@
             [discord.http :as http]))
 
 
-(bot/defcog admin [client message]
+(bot/defextension admin [client message]
   "Commands for common server adminstrative tasks."
   (:kick
     "Kicks the mentioned users from the server."

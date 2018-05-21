@@ -26,7 +26,7 @@
 ;;; Custom Discord message handlers
 ;;;
 ;;; This allows the creation of more advanced plugins that directly intercept messages that in a
-;;; way that allows for more customized handling than what is available through cogs.
+;;; way that allows for more customized handling than what is available through extensions.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defonce message-handlers (atom []))
 
@@ -69,7 +69,7 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; General bot definition and cog/extension dispatch building
+;;; General bot definition and extension/extension dispatch building
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn- dispatch-to-handlers
   "Dispatches to the currently registered user message handlers."
@@ -97,8 +97,8 @@
               delete  (partial http/delete-message client (:channel message))
               pm      (partial pm* client (:send-channel client) (get-in message [:author :id]))]
 
-      ;; If the message starts with the bot prefix, we'll dispatch to any cog extensions that have
-      ;; been installed
+      ;; If the message starts with the bot prefix, we'll dispatch to any extension extensions that
+      ;; have been installed
       (if (-> message :content (starts-with? prefix))
         (go
           (dispatch-to-extensions client message prefix extensions)))
@@ -127,11 +127,11 @@
      (DiscordBot. bot-name extensions prefix discord-client))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Defining a bot and its cogs inline
+;;; Defining a bot and its extensions inline
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn build-inline-cogs
+(defn build-inline-extensions
   ([key-func-pairs]
-   (into [] (map (partial apply build-inline-cogs)
+   (into [] (map (partial apply build-inline-extensions)
                  (partition 2 key-func-pairs))))
   ([fn-key fn-body]
    `(map->Extension {:command ~fn-key
@@ -141,83 +141,83 @@
                      :handler ~fn-body
                      :options ~command-options})))
 
-(defmacro with-cogs
+(defmacro with-extensions
   "Given a name, prefix and series of :keyword-function pairs, builds a new bot inside of a
    with-open block that will sleep the while background threads manage the bot."
   [bot-name prefix & key-func-pairs]
-  `(with-open [bot# (create-bot ~bot-name ~(build-inline-cogs key-func-pairs) ~prefix)]
+  `(with-open [bot# (create-bot ~bot-name ~(build-inline-extensions key-func-pairs) ~prefix)]
      (while true (Thread/sleep 3000))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Defining global cogs and commands that get loaded dynamically on bot startup
+;;; Defining global extensions and commands that get loaded dynamically on bot startup
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defonce extension-registry (atom (list)))
 (defonce extension-docs (atom {}))
 
-(defn register-cog!
-  "Creates a mapping between the supplied cog name and the handler function in the global cog
-   registry."
-  ;; Cog without options
-  ([cog-name cog-function]
-   (let [cog-map {:command  cog-name
-                  :handler  cog-function
+(defn register-extension!
+  "Creates a mapping between the supplied extension name and the handler function in the global
+   extension registry."
+  ;; extension without options
+  ([extension-name extension-function]
+   (let [extension-map {:command  extension-name
+                  :handler  extension-function
                   :options  nil}]
-     (swap! extension-registry conj cog-map)))
+     (swap! extension-registry conj extension-map)))
 
-  ;; Cog with options
-  ([cog-name cog-function cog-options]
-   (let [cog-map {:command  cog-name
-                  :handler  cog-function
-                  :options  cog-options}]
-     (swap! extension-registry conj cog-map))))
+  ;; extension with options
+  ([extension-name extension-function extension-options]
+   (let [extension-map {:command  extension-name
+                  :handler  extension-function
+                  :options  extension-options}]
+     (swap! extension-registry conj extension-map))))
 
-(defn register-cog-docs!
+(defn register-extension-docs!
   "Add the documentation for this particular extension to the global extension documentation
    registry."
-  [cog-name documentation]
+  [extension-name documentation]
   (if (seq documentation)
-    (swap! extension-docs assoc cog-name documentation)))
+    (swap! extension-docs assoc extension-name documentation)))
 
-(defn- build-default-cog-method
+(defn- build-default-extension-method
   "This function adds a catch-all error handling function for the extension to handle invalid
    subcommand input."
-  [cog-name]
-  `(defmethod ~cog-name :default [_# message#]
-     (say (format "Unrecognized command for %s: %s"
-                  ~(name cog-name)
+  [extension-name]
+  `(defmethod ~extension-name :default [_# message#]
+     (say (format "Unrecognized subcommand: %s"
+                  ~(name extension-name)
                   (-> message# :content utils/words first)))))
 
 (defn- build-subcomand
   "For each of the defined subcommands, we need to define a multimethod that handles that
    particular subcommand. We also want to add the documentation for that subcommand to the
    documentation for the overall command."
-  [cog-name client-param message-param dispatch-val & body]
+  [extension-name client-param message-param dispatch-val & body]
   `(let [command-doc#  ~(if (string? (first body))
                           `(format "\t%s: %s\n" ~(name dispatch-val) ~(first body))
                           `(format "\t%s\n" ~(name dispatch-val)))]
      ;; Add documentation for this command to the multimethod documentation
      (alter-meta!
-       (var ~cog-name)
+       (var ~extension-name)
        (fn [current-val#]
          (let [current-doc# (:doc current-val#)]
            (assoc current-val# :doc (str current-doc# command-doc#)))))
 
      ;; Define the method for this particular dispatch value
-     (defmethod ~cog-name ~dispatch-val [~client-param ~message-param]
+     (defmethod ~extension-name ~dispatch-val [~client-param ~message-param]
        ;; If docstring is provided to the command, we need to skip the first argument in
        ;; the implementation
        ~(if (string? (first body))
           `(do ~@(rest body))
           `(do ~@body)))))
 
-(defmacro defcog
+(defmacro defextension
   "Defines a multi-method with the supplied name with a 2-arity dispatch function which dispatches
    based upon the first word in the message. It also defines a :default which responds back with an
    error.
 
    Example:
-   (defcog test-cog [client message]
-    \"Optional global cog documentation\"
+   (defextension test-extension [client message]
+    \"Optional global extension documentation\"
     (:say
       \"Optional command documentation\"
       (say message))
@@ -231,19 +231,19 @@
           (http/kick client guild-id user)))))
 
    Arguments:
-    cog-name    :: String -- The name of the cog, and subsequent multi-method being defined.
-    arg-vector  :: Vector -- A 2-element vector defining the argument vector for the cog. The first
-                              argument is the client being passed to the message
-    docstring?  :: String -- Optional documentation that can be supplied for this cog.
-    impls       :: Forms  -- A sequence of lists, each representing a command implementation. The
-                              first argument to each implementation is a keyword representing the
-                              command being implemented. Optionally, the first argument in the
-                              implementation can be documentation for this particular command."
-  {:arglists '([cog-name [client-param message-param] docstring? & impls])}
-  [cog-name [client-param message-param :as arg-vector] & impls]
-  ;; Verify that the argument vector supplied to defcog is a list of 2
+    extension-name :: String -- The name of the extension, and subsequent multi-method being defined.
+    arg-vector :: Vector -- A 2-element vector defining the argument vector for the extension.  The
+      first argument is the client being passed to the message
+    docstring? :: String -- Optional documentation that can be supplied for this extension.
+    impls :: Forms  -- A sequence of lists, each representing a command implementation. The
+      first argument to each implementation is a keyword representing the command being implemented.
+      Optionally, the first argument in the implementation can be documentation for this particular
+      command."
+  {:arglists '([extension-name [client-param message-param] docstring? & impls])}
+  [extension-name [client-param message-param :as arg-vector] & impls]
+  ;; Verify that the argument vector supplied to defextension is a list of 2
   {:pre [(or (= 2 (count arg-vector))
-             (throw (ex-info "Cog definition argument vector requires 2 items (client & message)."
+             (throw (ex-info "Extension definition arg vector needs 2 args (client & message)."
                              {:len (count arg-vector) :curr arg-vector})))]}
   ;; Parse out some of the possible optional arguments
   (let [docstring?  (if (string? (first impls))
@@ -262,38 +262,39 @@
                       (rest impls)
                       impls)
 
-        ;; The last thing that we want to do is gensym on the cog name. This will prevent the
-        ;; defined cogs from overshadowing existing functions and causing problems down the line.
-        cog-fn-name (gensym cog-name)]
+        ;; The last thing that we want to do is gensym on the extension name. This will prevent the
+        ;; defined extensions from overshadowing existing functions and causing problems down the
+        ;; line.
+        extension-fn-name (gensym extension-name)]
     `(do
        ;; Define the multimethod
-       (defmulti ~(with-meta cog-fn-name m)
+       (defmulti ~(with-meta extension-fn-name m)
          (fn [client# message#]
            (-> message# :content utils/words first keyword)))
 
-       ;; Register the cog with the global cog hierarchy
-       (register-cog! ~(keyword cog-name) ~cog-fn-name ~options)
+       ;; Register the extension with the global extension hierarchy
+       (register-extension! ~(keyword extension-name) ~extension-fn-name ~options)
 
        ;; Supply a "default" error message responding back with an unknown command message
-       ~(build-default-cog-method cog-fn-name)
+       ~(build-default-extension-method extension-fn-name)
 
        ;; Add the docstring and the arglist to this command
-       (alter-meta! (var ~cog-fn-name) assoc
+       (alter-meta! (var ~extension-fn-name) assoc
                     :doc      (str ~docstring? "\n\nAvailable Subcommands:\n")
                     :arglists (quote ([~client-param ~message-param])))
 
        ;; Build the method implementations
        ~@(for [[dispatch-val & body] impls]
-           (apply build-subcomand cog-fn-name client-param message-param dispatch-val body))
+           (apply build-subcomand extension-fn-name client-param message-param dispatch-val body))
 
-       ;; Register the documentation for the cog
-       (register-cog-docs!
-         ~(keyword cog-name)
-         (-> (var ~cog-fn-name) meta :doc)))))
+       ;; Register the documentation for the extension
+       (register-extension-docs!
+         ~(keyword extension-name)
+         (-> (var ~extension-fn-name) meta :doc)))))
 
 (defmacro defcommand
-  "Defines a one-off command and adds that to the global cog registry. This is a single function
-   that will respond to commands and is not a part of a larger command infrastructure.
+  "Defines a one-off command and adds that to the global extension registry. This is a single
+   function that will respond to commands and is not a part of a larger command infrastructure.
 
    Example:
    (defcommand botsay [client message]
@@ -307,7 +308,7 @@
    \t\t(say (:content message))
    \t\t(delete message))
 
-   \t(register-cog! :botsay botsay))
+   \t(register-extension! :botsay botsay))
    "
   {:arglists '([command [client-param message-param] docstring? options? & command-body])}
   [command [client-param message-param :as arg-vector] & command-body]
@@ -327,11 +328,11 @@
         command-fn-name (gensym command)]
     `(do
        (defn ~(with-meta command-fn-name m) [~client-param ~message-param] ~@command-body)
-       (register-cog! ~(keyword command) ~command-fn-name ~options)
+       (register-extension! ~(keyword command) ~command-fn-name ~options)
        (if (:doc ~m)
-         (register-cog-docs! ~(keyword command) ~(:doc m))))))
+         (register-extension-docs! ~(keyword command) ~(:doc m))))))
 
-;;; Loading cogs from other files
+;;; Loading extensions from other files
 (defn get-clojure-files
   "Given a directory, returns all '.clj' files in that folder."
   [folder]
@@ -343,11 +344,12 @@
 
 (defn load-clojure-files-in-folder!
   "Given a directory, loads all of the .clj files in that directory tree. This can be used to
-   dynamically load cogs defined with defcog or manually calling register-cog! out of a folder."
+   dynamically load extensions defined with defextension or manually calling register-extension!
+   out of a folder."
   [folder]
   (let [clojure-files (get-clojure-files folder)]
     (doseq [filename clojure-files]
-      (timbre/infof "Loading cogs from: %s" filename)
+      (timbre/infof "Loading extensions from: %s" filename)
       (load-file filename))))
 
 (defn create-extension
@@ -364,9 +366,9 @@
   (map map->Extension @extension-registry))
 
 (defmacro from-files
-  "Creates a bot where the cogs are those present in all Clojure files present in the directories
-   supplied. This allows you to dynamically add files to a cogs/ directory and have them get
-   automatically loaded by the bot when it starts up."
+  "Creates a bot where the extensions are those present in all Clojure files present in the
+   directories supplied. This allows you to dynamically add files to a extensions/ directory and
+   have them get automatically loaded by the bot when it starts up."
   [bot-name prefix folders]
   `(do
      ;; Loads all the clojure files in the folders supplied
@@ -374,9 +376,11 @@
        (load-clojure-files-in-folder! folder#))
 
      ;; Opens a bot with those extensions
-     (let [cogs# (get-registered-extensions)]
-       (timbre/infof "Loaded %d cogs: %s." (count cogs#) (s/join ", " (map :command cogs#)))
-       (with-open [discord-bot# (create-bot ~bot-name cogs# ~prefix)]
+     (let [extensions# (get-registered-extensions)]
+       (timbre/infof "Loaded %d extensions: %s."
+                     (count extensions#)
+                     (s/join ", " (map :command extensions#)))
+       (with-open [discord-bot# (create-bot ~bot-name extensions# ~prefix)]
          (while true (Thread/sleep 3000))))))
 
 ;;; Builtin bot commands
@@ -384,7 +388,7 @@
 
 (defcommand help
   [_ _]
-  "Look at help information for the available cogs."
+  "Look at help information for the available extensions."
   (let [doc-separator (s/join (repeat 100 "-"))
         command-docs  (s/join \newline
                               (for [[c d] @extension-docs]

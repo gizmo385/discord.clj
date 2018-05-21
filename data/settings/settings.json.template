@@ -2,7 +2,7 @@
     "token" : "Your Auth Token",
     "prefix" : "!",
     "bot-name" : "CoolDiscordBot",
-    "cog-folders" : [
-        "src/discord/cogs"
+    "extension-folders" : [
+        "src/discord/extensions"
     ]
 }

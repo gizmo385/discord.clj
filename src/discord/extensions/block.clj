@@ -1,4 +1,4 @@
-(ns discord.cogs.block
+(ns discord.extensions.block
   (:require [clojure.core.async :refer [go >!] :as async]
             [clojure.string :as s]
             [discord.bot :as bot]
@@ -93,8 +93,8 @@
       (get-in settings [guild-id :all] [])
       (get-in settings [guild-id channel-id] []))))
 
-;;; Create a cog that will be used to add and remove blocked words for servers
-(bot/defcog block [client message]
+;;; Create a extension that will be used to add and remove blocked words for servers
+(bot/defextension block [client message]
   "Allows you to block words that you don't want appearing in certain contexts."
   ;;; Commands to block words
   (:global
@@ -131,7 +131,7 @@
       (bot/pm (format "The following words are blocked in that channel: %s"
                       (s/join ", " blocked-words))))))
 
-(bot/defcog unblock [client message]
+(bot/defextension unblock [client message]
   "Unblock words that are currently being blocked."
   ;;; Commands to block words
   (:global

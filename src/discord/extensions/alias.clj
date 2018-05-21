@@ -1,4 +1,4 @@
-(ns discord.cogs.alias
+(ns discord.extensions.alias
   (:require [clojure.core.async :refer [go >!] :as async]
             [clojure.string :refer [starts-with?] :as s]
             [discord.bot :as bot]
@@ -53,8 +53,8 @@
     (reset! alias-cache new-aliases)
     (reset! last-loaded-aliases (System/currentTimeMillis))))
 
-;;; The 'alias' cog will handle the addition and removal of aliases into the system.
-(bot/defcog alias [client message]
+;;; The 'alias' extension will handle the addition and removal of aliases into the system.
+(bot/defextension alias [client message]
   "Adding aliases for different bot commands."
   (:list
     "Lists the currently available aliases."
