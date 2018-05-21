@@ -92,7 +92,7 @@
   ;; Builds a handler function for a bot that will dispatch messages matching the supplied prefix
   ;; to the handlers of any extensions whose "command" is present immediately after the prefix
   (fn [client message]
-    ;; First we'll overwrite all of the dynamic functions
+    ;; First we'll partially apply our helper functions based on the incoming client and message.
     (binding [say     (partial say* (:send-channel client) (:channel message))
               delete  (partial http/delete-message client (:channel message))
               pm      (partial pm* client (:send-channel client) (get-in message [:author :id]))]
@@ -104,7 +104,7 @@
           (dispatch-to-extensions client message prefix extensions)))
 
       ;; For every message, we'll dispatch to the handlers. This allows for more sophisticated
-      ;; handling of messages that don't necessarily match the prefix (i.e. matching deleting
+      ;; handling of messages that don't necessarily match the prefix (i.e. matching & deleting
       ;; messages with swear words).
       (go
         (dispatch-to-handlers prefix client message)))))
@@ -155,6 +155,8 @@
 (defonce extension-docs (atom {}))
 
 (defn register-cog!
+  "Creates a mapping between the supplied cog name and the handler function in the global cog
+   registry."
   ;; Cog without options
   ([cog-name cog-function]
    (let [cog-map {:command  cog-name
@@ -169,18 +171,26 @@
                   :options  cog-options}]
      (swap! extension-registry conj cog-map))))
 
-(defn register-cog-docs! [cog-name documentation]
+(defn register-cog-docs!
+  "Add the documentation for this particular extension to the global extension documentation
+   registry."
+  [cog-name documentation]
   (if (seq documentation)
     (swap! extension-docs assoc cog-name documentation)))
 
 (defn- build-default-cog-method
+  "This function adds a catch-all error handling function for the extension to handle invalid
+   subcommand input."
   [cog-name]
   `(defmethod ~cog-name :default [_# message#]
      (say (format "Unrecognized command for %s: %s"
                   ~(name cog-name)
                   (-> message# :content utils/words first)))))
 
-(defn- build-subcog-body
+(defn- build-subcomand
+  "For each of the defined subcommands, we need to define a multimethod that handles that
+   particular subcommand. We also want to add the documentation for that subcommand to the
+   documentation for the overall command."
   [cog-name client-param message-param dispatch-val & body]
   `(let [command-doc#  ~(if (string? (first body))
                           `(format "\t%s: %s\n" ~(name dispatch-val) ~(first body))
@@ -274,7 +284,7 @@
 
        ;; Build the method implementations
        ~@(for [[dispatch-val & body] impls]
-           (apply build-subcog-body cog-fn-name client-param message-param dispatch-val body))
+           (apply build-subcomand cog-fn-name client-param message-param dispatch-val body))
 
        ;; Register the documentation for the cog
        (register-cog-docs!
