@@ -1,5 +1,7 @@
 # discord.clj
 
+[![Clojars Project](https://img.shields.io/clojars/v/discord.clj.svg)](https://clojars.org/discord.clj)
+
 discord.clj is a [Clojure](https://clojure.org/) wrapper around the [Discord
 APIs](https://discordapp.com/developers/docs/intro). This library was written to ease in the
 creation of Discord bots in Clojure.
