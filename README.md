@@ -10,8 +10,29 @@ This library is currently a work in progress and not production-ready in any sen
 
 ## Installation
 
-Currently, there is no central installation location for discord.clj. I will deploy it to
-[Clojars](https://clojars.org/) once it is more adaquately packaged.
+The library is available on Clojars [here](https://clojars.org/discord.clj). You can install it using any of the following methods:
+
+**Leiningen/Boot:**
+
+```[discord.clj "1.0.0"]```
+
+**Clojure CLI/deps.edn:**
+
+```discord.clj {:mvn/version "1.0.0"}```
+
+**Gradle:**
+
+```compile 'discord.clj:discord.clj:1.0.0'```
+
+**Maven:**
+
+```xml
+<dependency>
+  <groupId>discord.clj</groupId>
+  <artifactId>discord.clj</artifactId>
+  <version>1.0.0</version>
+</dependency>
+```
 
 ## Usage
 
