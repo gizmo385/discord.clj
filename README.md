@@ -34,7 +34,7 @@ The library is available on Clojars [here](https://clojars.org/discord.clj). You
 </dependency>
 ```
 
-## Usage
+## Compilation
 
 You can create a standalone JAR file for this by running the following:
 
