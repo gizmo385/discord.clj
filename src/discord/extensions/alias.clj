@@ -2,6 +2,7 @@
   (:require [clojure.core.async :refer [go >!] :as async]
             [clojure.string :refer [starts-with?] :as s]
             [discord.bot :as bot]
+            [discord.permissions :as perms]
             [discord.config :as config]
             [discord.constants :as const]
             [discord.utils :as utils]))
@@ -66,6 +67,7 @@
 
   (:add
     "Adds a new alias to the system."
+    {:requires [perms/MANAGE-MESSAGES]}
     (if-let [[commmand new-alias & command] (utils/words (:content message))]
       (do
         (add-alias new-alias (s/join " " command))
@@ -74,12 +76,14 @@
 
   (:remove
     "Removes the specified aliases"
+    {:requires [perms/MANAGE-MESSAGES]}
     (let [aliases-to-remove (utils/words (:content message))]
       (remove-aliases aliases-to-remove)
       (bot/say (format "Sucessfully removed: %s" (s/join ", " aliases-to-remove)))))
 
   (:clear
     "Removes all installed aliases."
+    {:requires [perms/MANAGE-MESSAGES]}
     (clear-aliases)
     (bot/say "I've removed all installed aliases.")))
 

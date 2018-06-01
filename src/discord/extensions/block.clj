@@ -5,6 +5,7 @@
             [discord.config :as config]
             [discord.constants :as const]
             [discord.http :as http]
+            [discord.permissions :as perm]
             [discord.utils :as utils]))
 
 ;;; Create the configuraton file if necessary
@@ -99,6 +100,7 @@
   ;;; Commands to block words
   (:global
     "Adds words to the global block list for the bot."
+    {:requires [perm/ADMINISTRATOR]}
     (if-let [[commmand & words-to-block] (utils/words (:content message))]
       (do
         (block-words words-to-block)
@@ -106,6 +108,7 @@
       (bot/say "Please supply words to block.")))
   (:guild
     "Adds words to the guild block list for the bot."
+    {:requires [perm/MANAGE-MESSAGES]}
     (let [guild (get-in message [:channel :guild-id])]
       (if-let [[commmand & words-to-block] (utils/words (:content message))]
         (do
@@ -114,6 +117,7 @@
         (bot/say "Please supply words to block."))))
   (:channel
     "Adds words to the guild/channel block list for the bot."
+    {:requires [perm/MANAGE-MESSAGES]}
     (let [channel (get-in message [:channel :id])
           guild   (get-in message [:channel :guild-id])]
       (if-let [[commmand & words-to-block] (utils/words (:content message))]
@@ -136,6 +140,7 @@
   ;;; Commands to block words
   (:global
     "Removes words from the global block list"
+    {:requires [perm/ADMINISTRATOR]}
     (if-let [[commmand & words-to-unblock] (utils/words (:content message))]
       (do
         (unblock-words words-to-unblock)
@@ -143,6 +148,7 @@
       (bot/say "Please supply words to unblock.")))
   (:guild
     "Removes words from the guild block list"
+    {:requires [perm/MANAGE-MESSAGES]}
     (let [guild (get-in message [:channel :guild-id])]
       (if-let [[commmand & words-to-block] (utils/words (:content message))]
         (do
@@ -151,6 +157,7 @@
         (bot/say "Please supply words to unblock."))))
   (:channel
     "Removes words from the guild/channel block list"
+    {:requires [perm/MANAGE-MESSAGES]}
     (let [channel (get-in message [:channel :id])
           guild   (get-in message [:channel :guild-id])]
       (if-let [[commmand & words-to-unblock] (utils/words (:content message))]
@@ -170,7 +177,7 @@
           (for [blocked-word blocked]
             (s/includes? message-text (name blocked-word))))))
 
-(bot/defhandler no-swearing-handler [prefix client message]
+(bot/defhandler block-handler [prefix client message]
   (let [message-channel (:channel message)
         send-channel (:send-channel client)
         needs-deletion? (check-message message)]
