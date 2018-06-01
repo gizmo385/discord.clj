@@ -38,4 +38,27 @@
     (let [bcast-message (->> message :content utils/words rest (s/join " "))
           servers (http/get-servers client)]
       (doseq [server servers]
-        (http/send-message client server bcast-message)))))
+        (http/send-message client server bcast-message))))
+
+  (:voiceregion
+    "Returns the current voice region for the guild."
+    {:requires [perm/MANAGE-GUILD]}
+    (let [guild-id      (get-in message [:channel :guild-id])
+          guild         (http/get-guild client guild-id)
+          voice-region  (-> guild :region name)]
+      (bot/say (format "The guild's voice region is currently \"%s\"" voice-region))))
+
+  (:regionlist
+    {:requires [perm/MANAGE-GUILD]}
+    "Lists all supported voice regions.")
+
+  (:regionmove
+    {:requires [perm/MANAGE-GUILD]}
+    "Moves the voice region for the guild to a new location."
+    (let [desired-region (->> message :content utils/words rest (s/join " "))
+          guild-id (get-in message [:channel :guild-id])]
+      (if-let [region-keyword (get types/server-region desired-region)]
+        (do
+          (bot/say (format "Moving voice server to \"%s\"" desired-region))
+          (http/modify-server client guild-id :region desired-region))
+        (bot/say (format "The region \"%s\" does not exist."))))))
