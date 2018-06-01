@@ -6,6 +6,7 @@
             [gniazdo.core :as ws]
             [taoensso.timbre :as timbre]
             [discord.http :as http]
+            [discord.permissions :as perm]
             [discord.types :refer [Authenticated] :as types]
             [discord.config :as config]))
 
@@ -145,6 +146,20 @@
   [discord-message gateway receive-chan]
   (let [message (build-message discord-message gateway)]
     (go (>! receive-chan message))))
+
+(defmethod handle-gateway-message :GUILD_ROLE_UPDATE
+  [discord-message gateway receive-chan]
+  (let [guild-id (get-in discord-message [:d :guild_id])
+        role-name (get-in discord-message [:d :role :name])]
+    (timbre/infof "Role \"%s\" updated, clearing guild role cache for guild %s." role-name guild-id)
+    (perm/clear-role-cache! guild-id)))
+
+(defmethod handle-gateway-message :GUILD_ROLE_CREATE
+  [discord-message gateway receive-chan]
+  (let [guild-id (get-in discord-message [:d :guild_id])
+        role-name (get-in discord-message [:d :role :name])]
+    (timbre/infof "Role \"%s\" created, clearing guild role cache for guild %s." role-name guild-id)
+    (perm/clear-role-cache! guild-id)))
 
 (defmethod handle-gateway-message nil
   [discord-message gateway receive-chan]

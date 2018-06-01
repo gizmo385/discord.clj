@@ -4,8 +4,7 @@
    human-readable keywords and implemented using the discord-request helper function. Exposed
    externally are functions such as get-channel, which perform the API requests and handle the
    transformation of the response into a more usable Clojure record."
-  (:require [clojure.core.cache :as cache]
-            [clojure.data.json :as json]
+  (:require [clojure.data.json :as json]
             [clojure.string :as s]
             [clj-http.client :as client]
             [overtone.at-at :as at]
@@ -112,11 +111,13 @@
    :update-nickname     (Route. "/guilds/{guild}/members/@me/nick" :patch)
 
    ;; Server/Guild Management
+   :get-guild           (Route. "/guilds/{guild}" :get)
    :get-servers         (Route. "/users/@me/guilds" :get)
    :leave-server        (Route. "/users/@me/guilds/{guild}" :delete)
    :delete-server       (Route. "/guilds/{guild}" :delete)
    :create-server       (Route. "/guilds" :post)
-   :edit-server         (Route. "/guilds/{guild}" :patch)
+   :modify-server       (Route. "/guilds/{guild}" :patch)
+   :get-guild-member    (Route. "/guilds/{guild}/members/{user}" :get)
    :list-members        (Route. "/guilds/{guild}/members" :get)
    :prune-members       (Route. "/guilds/{guild}/prune" :post)
    :prunable-members    (Route. "/guilds/{guild}/prune" :get)
@@ -143,6 +144,7 @@
    :delete-invite       (Route. "/invite/{invite}" :delete)
 
    ;; Roles
+   :get-roles           (Route. "/guilds/{guild}/roles" :get)
    :edit-role           (Route. "/guilds/{guild}/roles/{role}" :patch)
    :delete-role         (Route. "/guilds/{guild}/roles/{role}" :delete)
    :create-role         (Route. "/guilds/{guild}/roles" :post)
@@ -197,7 +199,9 @@
       200 (as-> response response
             (:body response)
             (json/read-str response :key-fn keyword)
-            (map constructor response))
+            (if (seq? response)
+              (map constructor response)
+              (constructor response)))
       204 true
 
       ;; Default
@@ -290,6 +294,9 @@
   (discord-request :clear-reactions :channel channel :message message))
 
 ;;; Iteracting with guilds/servers
+(defn get-guild [auth guild]
+  (discord-request :get-guild auth :guild guild :constructor build-server))
+
 (defn get-servers [auth]
   (discord-request :get-servers auth :constructor build-server))
 
@@ -301,13 +308,16 @@
   (discord-request :create-server auth :json {:name server-name :icon icon :region region}
                    :constructor build-server))
 
-(defn edit-server [auth guild & {:keys [name region] :as params}]
-  (discord-request :edit-server auth :guild guild :json params))
+(defn modify-server [auth guild & {:keys [name region] :as params}]
+  (discord-request :modify-server auth :guild guild :json params))
 
 (defn delete-server [auth guild]
   (discord-request :delete-server auth :guild guild))
 
 ;;; Server member management
+(defn get-guild-member [auth guild user]
+  (discord-request :get-guild-member auth :guild guild :user user :constructor build-user))
+
 (defn list-members [auth guild & {:keys [limit after] :as params}]
   (discord-request :list-members auth :guild guild :params params :constructor build-user))
 
@@ -384,6 +394,9 @@
 (defn delete-channel [auth channel]
   (discord-request :delete-channel auth :channel channel))
 
+;;; Roles
+(defn get-roles [auth guild]
+  (discord-request :get-roles auth :guild guild))
 
 ;;; Miscellaneous
 (defn send-typing [auth channel]

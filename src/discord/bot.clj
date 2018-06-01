@@ -6,6 +6,7 @@
             [discord.client :as client]
             [discord.config :as config]
             [discord.http :as http]
+            [discord.permissions :as perm]
             [discord.utils :as utils]
             [discord.types :as types]))
 
@@ -178,7 +179,7 @@
   (if (seq documentation)
     (swap! extension-docs assoc extension-name documentation)))
 
-(defn- build-default-extension-method
+(defn- emit-subcommand-error
   "This function adds a catch-all error handling function for the extension to handle invalid
    subcommand input."
   [extension-name]
@@ -187,28 +188,46 @@
                   ~(name extension-name)
                   (-> message# :content utils/words first)))))
 
-(defn- build-subcomand
+(defn- emit-subcommand
   "For each of the defined subcommands, we need to define a multimethod that handles that
    particular subcommand. We also want to add the documentation for that subcommand to the
    documentation for the overall command."
   [extension-name client-param message-param dispatch-val & body]
-  `(let [command-doc#  ~(if (string? (first body))
-                          `(format "\t%s: %s\n" ~(name dispatch-val) ~(first body))
-                          `(format "\t%s\n" ~(name dispatch-val)))]
-     ;; Add documentation for this command to the multimethod documentation
-     (alter-meta!
-       (var ~extension-name)
-       (fn [current-val#]
-         (let [current-doc# (:doc current-val#)]
-           (assoc current-val# :doc (str current-doc# command-doc#)))))
+  (let [body          body
+        ;; Check for documentation at the top of the subcommand
+        command-doc   (if (string? (first body))
+                        (format "\t%s: %s\n" (name dispatch-val) (first body))
+                        (format "\t%s\n" (name dispatch-val)))
+        body          (if (string? (first body))
+                        (rest body)
+                        body)
+        ;; Check for options at the top of the subcommand
+        options       (if (map? (first body))
+                        (first body)
+                        {})
+        body          (if (map? (first body))
+                        (rest body)
+                        body)
 
-     ;; Define the method for this particular dispatch value
-     (defmethod ~extension-name ~dispatch-val [~client-param ~message-param]
-       ;; If docstring is provided to the command, we need to skip the first argument in
-       ;; the implementation
-       ~(if (string? (first body))
-          `(do ~@(rest body))
-          `(do ~@body)))))
+        ;; Extract the permissions option
+        permissions   (get options :requires)]
+    `(do
+       ;; Add documentation for this command to the multimethod documentation
+       (alter-meta!
+         (var ~extension-name)
+         (fn [current-val#]
+           (let [current-doc# (:doc current-val#)]
+             (assoc current-val# :doc (str current-doc# ~command-doc)))))
+
+       ;; Define the method for this particular dispatch value
+       (defmethod ~extension-name ~dispatch-val [~client-param ~message-param]
+         ;; If docstring is provided to the command, we need to skip the first argument in
+         ;; the implementation
+         ~(if permissions
+            `(if (perm/has-permissions? ~client-param ~message-param ~permissions)
+               (do ~@body)
+               (say "You do not have permission to run that command!"))
+            `(do ~@body))))))
 
 (defmacro defextension
   "Defines a multi-method with the supplied name with a 2-arity dispatch function which dispatches
@@ -276,7 +295,7 @@
        (register-extension! ~(keyword extension-name) ~extension-fn-name ~options)
 
        ;; Supply a "default" error message responding back with an unknown command message
-       ~(build-default-extension-method extension-fn-name)
+       ~(emit-subcommand-error extension-fn-name)
 
        ;; Add the docstring and the arglist to this command
        (alter-meta! (var ~extension-fn-name) assoc
@@ -285,7 +304,7 @@
 
        ;; Build the method implementations
        ~@(for [[dispatch-val & body] impls]
-           (apply build-subcomand extension-fn-name client-param message-param dispatch-val body))
+           (apply emit-subcommand extension-fn-name client-param message-param dispatch-val body))
 
        ;; Register the documentation for the extension
        (register-extension-docs!
