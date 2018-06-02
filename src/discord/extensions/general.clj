@@ -1,16 +1,16 @@
 (ns discord.extensions.general
-  (:require [discord.bot :as bot]
+  (:require [clojure.string :as s]
+            [discord.bot :as bot]
+            [discord.embeds :as e]
             [discord.http :as http]
-            [discord.utils :as utils]
-            [clojure.string :as s]))
+            [discord.utils :as utils]))
 
 (bot/defcommand say [client message]
   "Tells the bot to echo back the content of your message."
   (bot/say (:content message)))
 
 (bot/defcommand botsay [client message]
-  "Tells the bot to echo back the content of your message and then deletes the user's original
-   message."
+  "Tells the bot to echo back the content of your message and then deletes the user's original message."
   (bot/say (:content message))
   (bot/delete message))
 
@@ -37,8 +37,7 @@
 (bot/defcommand servers [client message]
   "Lists the servers that the bot is a part of."
   (let [bot-servers (http/get-servers client)]
-    (->> client
-         (http/get-servers)
+    (->> bot-servers
          (map :name)
          (s/join \newline)
          (format "Servers I'm a part of: \n%s")
