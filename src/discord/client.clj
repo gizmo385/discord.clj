@@ -9,7 +9,7 @@
 ;;; Representing a Discord client connected to the Discord server
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defprotocol DiscordClient
-  (send-message [this channel content options]))
+  (send-message [this channel content embed tts]))
 
 (defrecord GeneralDiscordClient [auth gateway message-handler send-channel receive-channel]
   Authenticated
@@ -25,8 +25,8 @@
     (close! receive-channel))
 
   DiscordClient
-  (send-message [this channel content options]
-    (apply http/send-message (:auth this) channel content options)))
+  (send-message [this channel content embed tts]
+    (http/send-message (:auth this) channel content :embed embed :tts tts)))
 
 
 (defn create-discord-client
@@ -72,8 +72,8 @@
      ;; Read messages from the send channel and call send-message on them. This allows for
      ;; asynchronous messages sending
      (go-loop []
-       (if-let [message (<! send-chan)]
-         (send-message client (:channel message) (:content message) (:options message))
+       (if-let [{:keys [channel content embed tts]} (<! send-chan)]
+         (send-message client channel content embed tts)
          (throw (Exception. "Discord Client's send channel was closed unexpectedly!")))
        (recur))
 
