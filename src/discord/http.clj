@@ -10,6 +10,7 @@
             [overtone.at-at :as at]
             [slingshot.slingshot :refer [try+]]
             [taoensso.timbre :as timbre]
+            [discord.embeds :as embeds]
             [discord.types :refer [Authenticated] :as types]
             [discord.utils :as utils]))
 
@@ -250,7 +251,9 @@
 
 ;;; Managing messages
 (defn send-message [auth channel content & {:keys [tts embed]}]
-  (let [payload {:content content :tts (boolean tts) :embed embed}]
+  (let [embed-map (embeds/embed->map embed)
+        payload   {:content content :tts (boolean tts) :embed embed-map}]
+    (timbre/infof "Sending embed: %s" embed-map)
     (discord-request :send-message auth :channel channel :json payload)))
 
 (defn delete-message [auth channel message]
