@@ -96,22 +96,3 @@
     (if (:thumbnail embed)  (assoc embed :thumbnail (prune-into-map (:thumbnail embed)))  embed)
     (if (:fields embed)     (assoc embed :fields (map prune-into-map (:fields embed)))    embed)
     (prune-into-map embed)))
-
-(comment
-  (require '[clojure.pprint :refer [pprint]])
-  (pprint
-    (-> (create-embed :title "This is a test embed message"
-                      :description "Yo we testin' stuff now bois")
-        (+image :url "https://giphy.com/gifs/9K2nFglCAQClO")
-        (embed->map)))
-  (pprint
-    (-> (create-embed
-          :title "Testing"
-          :description "Testing embeds")
-        (+field "TestField" 1)
-        (+video :url "https://www.youtube.com/jfldkajfkldajlk")
-        (+image :url "https://test.image.com/jfkdlajflkdajlk")
-        (+provider :name "Chris")
-        (+author :name "Chris")
-        (+thumbnail :url "TestThumbnail")
-        (embed->map))))
