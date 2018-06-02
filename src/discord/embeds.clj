@@ -2,7 +2,6 @@
   (:require [clj-time.format :as f]
             [clj-time.coerce :as c]))
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Embedded Fields
 ;;;
@@ -96,3 +95,8 @@
     (if (:thumbnail embed)  (assoc embed :thumbnail (prune-into-map (:thumbnail embed)))  embed)
     (if (:fields embed)     (assoc embed :fields (map prune-into-map (:fields embed)))    embed)
     (prune-into-map embed)))
+
+(defn embed?
+  "Returns whether or not 'maybe-embed' is an Embed record."
+  [maybe-embed]
+  (instance? Embed maybe-embed))

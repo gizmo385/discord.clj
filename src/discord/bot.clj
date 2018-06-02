@@ -5,6 +5,7 @@
             [taoensso.timbre :as timbre]
             [discord.client :as client]
             [discord.config :as config]
+            [discord.embeds :as embeds]
             [discord.http :as http]
             [discord.permissions :as perm]
             [discord.utils :as utils]
@@ -60,14 +61,17 @@
 
 ;;; These functions locally patch the above functions based on context supplied by the handler
 (defn- say*
-  [send-channel channel content]
-  (go (>! send-channel {:channel channel :content content :options {}})))
+  [send-channel channel message]
+  (if (embeds/embed? message)
+    (go (>! send-channel {:channel channel :content "" :embed message}))
+    (go (>! send-channel {:channel channel :content message}))))
 
-(defn- pm* [auth send-channel user content]
+(defn- pm* [auth send-channel user message]
   ;; Open up a DM channel with the recipient and then send them the message
   (let [dm-channel (http/create-dm-channel auth user)]
-    (go (>! send-channel {:channel dm-channel :content content :options {}}))))
-
+    (if (embeds/embed? message)
+      (go (>! send-channel {:channel dm-channel :content "" :embed message}))
+      (go (>! send-channel {:channel dm-channel :content message})))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; General bot definition and extension/extension dispatch building
@@ -405,14 +409,16 @@
 ;;; Builtin bot commands
 (defonce doc-separator (s/join (repeat 100 "-")))
 
+(defn- generate-doc-embed []
+  (loop [docs   @extension-docs
+         embed  (embeds/create-embed :title "Available commands:")]
+    (if-let [[command doc] (first docs)]
+      (recur (rest docs)
+             (embeds/+field embed command doc))
+      embed)))
+
 (defcommand help
   [_ _]
   "Look at help information for the available extensions."
-  (let [doc-separator (s/join (repeat 100 "-"))
-        command-docs  (s/join \newline
-                              (for [[c d] @extension-docs]
-                                (format "%s: %s" (name c) d)))]
-    (if (seq command-docs)
-      (pm (format "Commands:\n%s\n%s" command-docs doc-separator))
-      (let [commands (s/join ", " (map (comp name :command) @extension-registry))]
-        (pm (format "Commands: %s" commands))))))
+  (let [doc-embed (generate-doc-embed)]
+    (pm doc-embed)))
