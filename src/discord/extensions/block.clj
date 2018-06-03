@@ -183,7 +183,5 @@
         needs-deletion? (check-message message)]
     (if needs-deletion?
       (do
-        (http/delete-message client message-channel message)
-        (go (>! send-channel {:channel message-channel
-                              :content "Naughty, naughty! No swearing allowed! :see_no_evil:"
-                              :options {}}))))))
+        (bot/delete message)
+        (bot/say "Naughty, naughty! No swearing allowed! :see_no_evil:")))))
