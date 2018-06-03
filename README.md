@@ -8,6 +8,10 @@ creation of Discord bots in Clojure.
 
 The goal is to implement a [fully-compliant](https://gist.github.com/meew0/bbbbd5348967dee5f7e84c0cd58983fd) Discord API wrapper. This library is heavily influenced by [discord.py](https://github.com/Rapptz/discord.py). I'm working on constantly improving the feature set in this library would welcome contributors who want to help make that a reality :)!
 
+## Documentation
+
+For documentation, please check [the wiki](https://github.com/gizmo385/discord.clj/wiki), where I'm compiling tutorials on the various features available in discord.clj!
+
 ## Installation
 
 The library is available on Clojars [here](https://clojars.org/discord.clj). You can install it using any of the following methods:
@@ -49,9 +53,6 @@ To run the core namespace which contains a basic bot framework, you can run the 
 $ lein run
 ```
 
-## Documentation
-
-For documentation, please check [the wiki](https://github.com/gizmo385/discord.clj/wiki), where I'm compiling tutorials on the various features available in discord.clj!
 
 ## License
 
