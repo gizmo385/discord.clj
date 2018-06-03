@@ -1,4 +1,4 @@
-(defproject discord.clj "1.0.0"
+(defproject discord.clj "1.1.0"
   :description "A library for creating Discord bots in Clojure."
   :url "https://github.com/gizmo385/discord.clj"
   :license {:name "Eclipse Public License"
