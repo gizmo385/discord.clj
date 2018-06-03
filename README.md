@@ -14,15 +14,15 @@ The library is available on Clojars [here](https://clojars.org/discord.clj). You
 
 **Leiningen/Boot:**
 
-```[discord.clj "1.0.0"]```
+```[discord.clj "1.1.0"]```
 
 **Clojure CLI/deps.edn:**
 
-```discord.clj {:mvn/version "1.0.0"}```
+```discord.clj {:mvn/version "1.1.0"}```
 
 **Gradle:**
 
-```compile 'discord.clj:discord.clj:1.0.0'```
+```compile 'discord.clj:discord.clj:1.1.0'```
 
 **Maven:**
 
@@ -30,7 +30,7 @@ The library is available on Clojars [here](https://clojars.org/discord.clj). You
 <dependency>
   <groupId>discord.clj</groupId>
   <artifactId>discord.clj</artifactId>
-  <version>1.0.0</version>
+  <version>1.1.0</version>
 </dependency>
 ```
 
@@ -40,7 +40,7 @@ You can create a standalone JAR file for this by running the following:
 
 ```Shell
 $ lein uberjar
-$ java -jar ./target/uberjar/discord.clj-0.1.0-SNAPSHOT-standalone.jar
+$ java -jar ./target/uberjar/discord.clj-1.1.0-standalone.jar
 ```
 
 To run the core namespace which contains a basic bot framework, you can run the following:
