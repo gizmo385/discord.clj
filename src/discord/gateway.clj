@@ -49,7 +49,7 @@
   java.io.Closeable
   (close [this]
     (if (:websocket this)
-      (ws/close (:websocket this))))
+      (ws/close @(:websocket this))))
 
   Authenticated
   (token [this]
@@ -251,8 +251,14 @@
       :on-connect (fn [message] (timbre/info "Connected to Discord Gateway"))
       :on-error   (fn [message] (timbre/errorf "Error: %s" message))
       :on-close   (fn [status reason]
-                    (timbre/info "Connected closed, attempting to reconnect...")
-                    (reconnect-gateway gateway)))))
+                    ;; The codes above 1001 denote erroreous closure states
+                    ;; https://developer.mozilla.org/en-US/docs/Web/API/CloseEvent
+                    (if (> 1001 status)
+                      (do
+                        (timbre/warnf "Socket closed for unexpected reason (%d): %s" status reason)
+                        (timbre/warnf "Attempting to reconnect to websocket...")
+                        (reconnect-gateway gateway))
+                      (timbre/infof "Closing Gateway websocket, not reconnecting (%d)." status))))))
 
 ;;; There are a few elements of state that a Discord gateway connection needs to track, such as
 ;;; its sequence number, its heartbeat interval, the websocket connection, and its I/O channels.

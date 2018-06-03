@@ -61,4 +61,10 @@
         (do
           (bot/say (format "Moving voice server to \"%s\"" desired-region))
           (http/modify-server client guild-id :region desired-region))
-        (bot/say (format "The region \"%s\" does not exist."))))))
+        (bot/say (format "The region \"%s\" does not exist.")))))
+
+  (:shutdown
+    {:requires [perm/ADMINISTRATOR]}
+    "Attempts to cleanly shutdown the bot."
+    (.close client)
+    (System/exit 0)))
