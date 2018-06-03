@@ -49,49 +49,9 @@ To run the core namespace which contains a basic bot framework, you can run the 
 $ lein run
 ```
 
-## Examples
+## Documentation
 
-Here is a dead-simple bot you can create using discord.clj:
-
-```Clojure
-(ns example.bot
-  (:require [discord.bot :refer [say delete] :as bot]
-            [discord.http :as http])
-  (:gen-class))
-
-;;; Example extension implementation for admin commands
-(bot/defextension admin-extension [client message]
-  ;; Kicks all users mentioned in the messagj
-  (:kick
-    (doseq [user (:user-mentions message)]
-      (let [user-id (:id user)
-            guild-id (get-in message [:channel :guild-id] message)]
-        (http/kick client guild-id user-id))))
-
-  ;; Sends a message to all servers the bot is a part of
-  (:broadcast
-    (let [bcast-message (->> message :content utils/words rest (s/join " "))
-          servers (http/get-servers client)]
-      (doseq [server servers]
-        (http/send-message client server bcast-message)))))
-
-
-(defn -main
-  "Creates a new discord bot and supplies a series of extensions to it."
-  [& args]
-  (bot/open-with-extensions
-    "TestDiscordBot" "^"
-    :say    (fn [client message]
-              (say (:content message)))
-    :botsay (fn [client message]
-              (say (:content message))
-              (delete message))
-    :greet  (fn [_ _]
-              (say "HELLO EVERYONE"))
-    :admin  admin-extension))
-```
-
-For more examples, check out the /docs folder for walkthroughs on how to create a bot.
+For documentation, please check [the wiki](https://github.com/gizmo385/discord.clj/wiki), where I'm compiling tutorials on the various features available in discord.clj!
 
 ## License
 
