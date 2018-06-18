@@ -2,6 +2,7 @@
   (:require [clojure.core.async :refer [go >!] :as async]
             [clojure.string :refer [starts-with?] :as s]
             [discord.bot :as bot]
+            [discord.embeds :as embeds]
             [discord.permissions :as perms]
             [discord.config :as config]
             [discord.constants :as const]
@@ -60,9 +61,12 @@
   (:list
     "Lists the currently available aliases."
     (if-let [aliases (not-empty (get-aliases))]
-      (bot/say (s/join
-        (for [[defined-alias command] aliases]
-          (format "%s: %s\n" defined-alias command))))
+      (loop [aliases aliases
+             embed (embeds/create-embed :title "Available aliases:")]
+        (if-let [[defined-alias command] (first aliases)]
+          (recur (rest aliases)
+                 (embeds/+field embed (name defined-alias) command))
+          (bot/say embed)))
       (bot/say "Could not find any defined aliases. Try adding one with 'alias add'!")))
 
   (:add
