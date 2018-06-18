@@ -1,13 +1,7 @@
 (ns discord.utils
   (:require [clojure.set :refer [map-invert]]
-            [clojure.string :as s]))
-
-(defn get-id [object-or-id]
-  (condp = (type object-or-id)
-    java.lang.String  object-or-id
-    java.lang.Integer object-or-id
-    java.lang.Long    object-or-id
-    (:id object-or-id)))
+            [clojure.string :as s]
+            [discord.types :refer [->snowflake]]))
 
 (defn bidirectional-map [m]
   (merge m (map-invert m)))
@@ -15,16 +9,20 @@
 (defn words [s]
   (s/split s #"\s+"))
 
-(defonce dict-replace-pattern
+(defonce map-replace-pattern
   #"\{(?<field>\w+)\}")
 
-(defn dict-format [target replacements]
+(defn map-format
+  "Helper function to replace bracketed substrings in a string based on values in a map.
+    Example:
+      (map-format \"Hello {thing}\" {:thing \"World\"}) --> \"Hello World\"."
+  [target replacements]
   (s/replace
     target
-    dict-replace-pattern
+    map-replace-pattern
     (fn [[_ field]]
       (->> field
-           (keyword)
+           keyword
            (get replacements)
-           (get-id)
-           (str)))))
+           ->snowflake
+           str))))

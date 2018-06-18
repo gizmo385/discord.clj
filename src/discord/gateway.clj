@@ -7,17 +7,14 @@
             [taoensso.timbre :as timbre]
             [discord.http :as http]
             [discord.permissions :as perm]
-            [discord.types :refer [Authenticated] :as types]
+            [discord.types :refer [Authenticated Snowflake ->snowflake] :as types]
             [discord.config :as config]))
 
 ;;; Representing a message from the API
 (defrecord Message [content attachments embeds sent-time channel author user-mentions role-mentions
-                    pinned? everyone-mentioned? id])
-
-(defn- string->long [s]
-  (try
-    (Long/parseLong s)
-    (catch NumberFormatException nfe s)))
+                    pinned? everyone-mentioned? id]
+  Snowflake
+  (->snowflake [message] (:id message)))
 
 (defn build-message
   "Builds a Message record based on the incoming Message from the Discord Gateway. The Gateway
@@ -38,7 +35,7 @@
        :embeds                (get-in message-map [:d :embeds])
        :attachments           (get-in message-map [:d :attachments])
        :pinned?               (get-in message-map [:d :pinned])
-       :id                    (string->long (get-in message-map [:d :id]))})))
+       :id                    (Long/parseLong (get-in message-map [:d :id]))})))
 
 
 ;;; Implementing Discord Gateway behaviour
