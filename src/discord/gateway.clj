@@ -45,17 +45,20 @@
 (defprotocol Gateway
   (send-message [this message]))
 
-(defrecord DiscordGateway [url shards websocket auth seq-num session-id heartbeat-interval]
+(defrecord DiscordGateway [url shards websocket auth seq-num session-id heartbeat-interval
+                           stop-heartbeat-channel]
   java.io.Closeable
   (close [this]
-    (if (:websocket this)
-      (ws/close @(:websocket this))))
+    (when (:websocket this)
+      (ws/close @(:websocket this)))
+    (when (:stop-heartbeat-channel this)
+      (async/close! (:stop-heartbeat-channel this))))
 
   Authenticated
   (token [this]
     (types/token (:auth this)))
   (token-type [this]
-     (types/token-type (:auth this)))
+    (types/token-type (:auth this)))
 
   Gateway
   (send-message [this message]
@@ -271,19 +274,21 @@
    receive-channel : Channel -- An asynchronous channel (core.async) that messages from the server
       will be pushed onto."
   [auth receive-channel]
-  (let [socket              (atom nil)
-        seq-num             (atom 0)
-        heartbeat-interval  (atom 1000)
-        session-id          (atom nil)
-        gateway             (build-gateway (http/get-bot-gateway auth))
-        gateway             (assoc gateway
-                                   :auth                auth
-                                   :session-id          session-id
-                                   :seq-num             seq-num
-                                   :heartbeat-interval  heartbeat-interval
-                                   :receive-channel     receive-channel
-                                   :websocket           socket)
-        websocket           (create-websocket gateway)]
+  (let [socket                 (atom nil)
+        seq-num                (atom 0)
+        heartbeat-interval     (atom 1000)
+        stop-heartbeat-channel (async/chan)
+        session-id             (atom nil)
+        gateway                (build-gateway (http/get-bot-gateway auth))
+        gateway                (assoc gateway
+                                      :auth                   auth
+                                      :session-id             session-id
+                                      :seq-num                seq-num
+                                      :heartbeat-interval     heartbeat-interval
+                                      :stop-heartbeat-channel stop-heartbeat-channel
+                                      :receive-channel        receive-channel
+                                      :websocket              socket)
+        websocket              (create-websocket gateway)]
 
     ;; Assign the connected websocket to the Gateway's socket field
     (reset! socket websocket)
@@ -291,8 +296,9 @@
     ;; Begin asynchronously sending heartbeat messages to the gateway
     (go-loop []
       (send-heartbeat gateway seq-num)
-      (<! (async/timeout @heartbeat-interval))
-      (recur))
+      (async/alt!
+        stop-heartbeat-channel (timbre/warn "Websocket closed! Terminating heartbeat channel...")
+        (async/timeout @heartbeat-interval) (recur)))
 
     ;; Return the gateway that we created
     gateway))
