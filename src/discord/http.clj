@@ -15,7 +15,7 @@
             [discord.utils :as utils]))
 
 ;;; Global constants for interacting with the API
-(defonce user-agent "DiscordBot (https://github.com/gizmo385/discord.clj)")
+(defonce user-agent "discord.clj (https://github.com/gizmo385/discord.clj)")
 (defonce discord-url "https://discordapp.com/api/v6")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
