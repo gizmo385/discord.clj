@@ -293,9 +293,9 @@
     ;; Begin asynchronously sending heartbeat messages to the gateway
     (go-loop []
       (send-heartbeat gateway seq-num)
-      (let [[_ port] (async/alts! [stop-heartbeat-channel (async/timeout @heartbeat-interval)])]
-        (when-not (= stop-heartbeat-channel port)
-          (recur))))
+      (async/alt!
+        stop-heartbeat-channel (timbre/warn "Websocket closed! Terminating heartbeat channel...")
+        (async/timeout @heartbeat-interval) (recur)))
 
     ;; Return the gateway that we created
     gateway))
