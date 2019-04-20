@@ -49,12 +49,13 @@
       (bot/say (format "The guild's voice region is currently \"%s\"" voice-region))))
 
   (:regionlist
+    "Lists all supported voice regions."
     {:requires [perm/MANAGE-GUILD]}
-    "Lists all supported voice regions.")
+    (bot/say (format "Supported voice regions: %s" (s/join ", " (keys types/server-region)))))
 
   (:regionmove
-    {:requires [perm/MANAGE-GUILD]}
     "Moves the voice region for the guild to a new location."
+    {:requires [perm/MANAGE-GUILD]}
     (let [desired-region (->> message :content utils/words rest (s/join " "))
           guild-id (get-in message [:channel :guild-id])]
       (if-let [region-keyword (get types/server-region desired-region)]
