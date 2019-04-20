@@ -5,7 +5,7 @@ complicated structure than a normal text message. They are documented in the dis
 documentation [here](https://discordapp.com/developers/docs/resources/channel#embed-object).
 
 Discord.clj allows you to build embeds using the `discord.embeds` namespace defined
-[here](https://github.com/gizmo385/discord.clj/blob/develop/docs/embeds.md). Here is how you might
+[here](/docs/embeds.md). Here is how you might
 define an embed message:
 
 ```Clojure

@@ -69,14 +69,14 @@ to the command:
 | id | The unique Snowflake ID  for the message |
 
 †: Discussion of how to create
-[Embed](/srcdiscord/embeds.clj) objects is
+[Embed](/src/discord/embeds.clj) objects is
 available [here](embeds.md).
 
 \* Definition of the
-[Channel](/srcdiscord/http.clj#L56) object.
+[Channel](/src/discord/http.clj#L56) object.
 
 \*\* Definition of the
-[User](/srcdiscord/http.clj#L36-L37) object.
+[User](/src/discord/http.clj#L36-L37) object.
 
 The  third argument to `bot/defcommand` is optional documentation for the command that you're
 defining. The bot comes with a builtin `help` command that will PM the user with information about

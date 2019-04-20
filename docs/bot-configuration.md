@@ -3,7 +3,7 @@
 Below you'll find information about how to perform the basic setup and configuration of discord.clj
 so that you can start interacting with it on your servers!
 
-The [core](https://github.com/gizmo385/discord.clj/blob/master/src/discord/core.clj) namespace in
+The [core](/src/discord/core.clj) namespace in
 discord.clj contains all of the basic code that you need in order to get the Discord bot running:
 
 ```Clojure
@@ -21,7 +21,7 @@ discord.clj contains all of the basic code that you need in order to get the Dis
 
 Beyond this simple code snippet, you'll also need to add a `settings.json` file to the
 `data/settings` directory. A template of that file [is
-available](https://github.com/gizmo385/discord.clj/blob/master/data/settings/settings.json.template):
+available](/data/settings/settings.json.template):
 
 ```json
 {

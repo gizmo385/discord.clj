@@ -4,7 +4,8 @@ There are a number of circumstances in which you might want to define custom beh
 
 # A Simple Message Handler Example
 
-Let's breakdown a simplified version of the [karma extension supplied with the bot](https://github.com/gizmo385/discord.clj/blob/master/src/discord/extensions/karma.clj):
+Let's breakdown a simplified version of the
+[karma extension supplied with the bot](/src/discord/extensions/karma.clj):
 
 ```Clojure
 (ns discord.extensions.karma
@@ -49,4 +50,6 @@ These 3 arguments give us all the flexibility that we need, giving us all the sa
 1. It scans each message to determine if it matches a regular expression. This regular expression is basically looking for messages that look something like this: `@user#1234+++`
 2. It updates global user karma table based on the number of `+` or `-` characters in the message.
 
-For some more examples of message handlers, take a look at the [alias extension](https://github.com/gizmo385/discord.clj/blob/master/src/discord/extensions/alias.clj) or the [block extension](https://github.com/gizmo385/discord.clj/blob/master/src/discord/extensions/block.clj).
+For some more examples of message handlers, take a look at the
+[alias extension](/src/discord/extensions/alias.clj) or the
+[block extension](/src/discord/extensions/block.clj).
