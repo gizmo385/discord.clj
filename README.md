@@ -10,7 +10,12 @@ The goal is to implement a [fully-compliant](https://gist.github.com/meew0/bbbbd
 
 ## Documentation
 
-For documentation, please check [the wiki](https://github.com/gizmo385/discord.clj/wiki), where I'm compiling tutorials on the various features available in discord.clj!
+For information about the various features in discord.clj, please check [the docs](/docs):
+ * [Getting Started & Bot Configuration](/docs/bot-configuration.md)
+ * [Creating Extensions](/docs/extensions.md)
+ * [Message Handlers](/docs/message-handlers.md)
+ * [Message Embeds](/docs/embeds.md)
+ * [Extension Permissions](/docs/permissions.md)
 
 ## Installation
 
@@ -18,15 +23,15 @@ The library is available on Clojars [here](https://clojars.org/discord.clj). You
 
 **Leiningen/Boot:**
 
-```[discord.clj "1.1.1"]```
+```[discord.clj "2.0.0"]```
 
 **Clojure CLI/deps.edn:**
 
-```discord.clj {:mvn/version "1.1.1"}```
+```discord.clj {:mvn/version "2.0.0"}```
 
 **Gradle:**
 
-```compile 'discord.clj:discord.clj:1.1.1'```
+```compile 'discord.clj:discord.clj:2.0.0'```
 
 **Maven:**
 
@@ -34,7 +39,7 @@ The library is available on Clojars [here](https://clojars.org/discord.clj). You
 <dependency>
   <groupId>discord.clj</groupId>
   <artifactId>discord.clj</artifactId>
-  <version>1.1.1</version>
+  <version>2.0.0</version>
 </dependency>
 ```
 
@@ -44,7 +49,7 @@ You can create a standalone JAR file for this by running the following:
 
 ```Shell
 $ lein uberjar
-$ java -jar ./target/uberjar/discord.clj-1.1.1-standalone.jar
+$ java -jar ./target/uberjar/discord.clj-2.0.0-standalone.jar
 ```
 
 To run the core namespace which contains a basic bot framework, you can run the following:

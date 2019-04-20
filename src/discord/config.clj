@@ -7,7 +7,13 @@
 
 ;;; Saving, loading, and checking config files
 (defmulti file-io
-  "Manages the saving and loading of file-io files"
+  "Manages the saving and loading of file-io files.
+
+   Optional arguments per operation:
+    - :save
+      - data: The data that you wish to save to the file.
+   - :load
+      - :default: The value to be returned if data could not be loaded."
   (fn [filename operation & {:keys [data default]}]
     operation))
 
@@ -20,19 +26,27 @@
     (catch IOException ioe
       (or default []))))
 
-(defmethod file-io :check [filename _]
-  (let [f (io/as-file filename)]
-    (if (not (.exists f))
-      (do
-        ;; Create the parent directories
-        (->> f
-             (.getParentFile)
-             (.getAbsolutePath)
-             (io/file)
-             (.mkdirs))
-        (.createNewFile f)))
-    (.exists f)))
+(defn- file-exists?
+  "Returns whether or not the specified filename exists on disk."
+  [filename]
+  (-> filename
+      (io/as-file)
+      (.exists)))
 
+(defn- create-file
+  "Creates the file specified by the filename. Also creates all necessary parent directories."
+  [filename]
+  (let [f (io/as-file filename)]
+    (-> f
+        (.getParentFile)
+        (.getAbsolutePath)
+        (io/file)
+        (.mkdirs))
+    (.createNewFile f)))
+
+(defmethod file-io :check [filename _]
+  (if-not (file-exists? filename)
+    (create-file filename)))
 
 (defn get-prefix
   ([] (get-prefix global-bot-settings))

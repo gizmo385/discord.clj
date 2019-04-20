@@ -11,18 +11,20 @@
             [slingshot.slingshot :refer [try+]]
             [taoensso.timbre :as timbre]
             [discord.embeds :as embeds]
-            [discord.types :refer [Authenticated] :as types]
+            [discord.types :refer [Authenticated Snowflake ->snowflake] :as types]
             [discord.utils :as utils]))
 
 ;;; Global constants for interacting with the API
-(defonce user-agent "DiscordBot (https://github.com/gizmo385/discord.clj)")
+(defonce user-agent "discord.clj (https://github.com/gizmo385/discord.clj)")
 (defonce discord-url "https://discordapp.com/api/v6")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Defining Records relevant to the Discord APIs, as well as more useful constructors for
 ;;; those Records.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defrecord Server [id name permissions owner? icon region])
+(defrecord Server [id name permissions owner? icon region]
+  Snowflake
+  (->snowflake [server] (-> server :id Long/parseLong)))
 
 (defn build-server [server-map]
   (map->Server
@@ -34,7 +36,9 @@
      :region      (get types/server-region (:region server-map))}))
 
 (defrecord User [id username mention bot? mfa-enabled? verified? roles deaf mute avatar joined
-                 discriminator])
+                 discriminator]
+  Snowflake
+  (->snowflake [user] (-> user :id Long/parseLong)))
 
 (defn build-user [user-map]
   (let [user-id (-> user-map :user :id)
@@ -53,7 +57,9 @@
      :avatar        (-> user-map :user :avatar)
      :discriminator (-> user-map :user :discriminator)})))
 
-(defrecord Channel [id guild-id name type position topic])
+(defrecord Channel [id guild-id name type position topic]
+  Snowflake
+  (->snowflake [channel] (-> channel :id Long/parseLong)))
 
 (defonce channel-type-map
   {0      :text
@@ -162,7 +168,7 @@
 
 (defn get-endpoint [endpoint-key endpoint-args]
   (if-let [{:keys [endpoint method]} (get endpoint-mapping endpoint-key)]
-    {:endpoint (utils/dict-format endpoint endpoint-args)
+    {:endpoint (utils/map-format endpoint endpoint-args)
      :method method}
     (throw (ex-info "Invalid endpoint supplied" {:endpoint endpoint-key}))))
 
@@ -385,7 +391,7 @@
     (discord-request :create-channel auth :guild guild :json request-params)))
 
 (defn create-dm-channel [auth user]
-  (let [json-params {:recipient_id (utils/get-id user)}]
+  (let [json-params {:recipient_id (->snowflake user)}]
     (build-channel (into {} (discord-request :create-dm-channel auth :json json-params)))))
 
 (defn edit-channel [auth channel & {:keys [name topic bitrate position] :as params}]

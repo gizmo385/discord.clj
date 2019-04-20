@@ -12,7 +12,7 @@
 
 ;;; This is where we'll maintain the user's karma
 (defonce user-karma
-  (atom (config/file-io karma-file :load :default {})))
+  (atom (config/file-io karma-file :load :default {} :key-fn str)))
 
 ;;; This is the pattern that messages much match to alter the karma in the channel
 (defonce karma-message-pattern
@@ -21,41 +21,57 @@
 (bot/defextension karma [client message]
   (:get
     "Retrieve the karma for mentioned users."
-    (let [users  (map :id (:user-mentions message))
-          karmas (for [user users] (format "<@%s>: %s" user (get @user-karma user 0)))]
+    (let [channel (-> message :channel :id str)
+          users   (map :id (:user-mentions message))
+          karmas  (for [user users]
+                    (format "<@%s>: %s" user (get-in @user-karma [channel user] 0)))]
       (bot/say (format "Karma: \n%s" (s/join \newline karmas)))))
 
   (:top
     "Retrieves the karma of the top 10 users."
-    (let [users         (take 10 (sort-by val > @user-karma))
+    (let [channel       (-> message :channel :id str)
+          users         (take 10 (sort-by val > (get @user-karma channel {})))
           message-body  (for [[user karma] users] (format "<@%s>: %s" (name user) karma))]
-      (bot/say (format "Highest karma users:\n%s" (s/join \newline message-body)))))
+      (if (not-empty users)
+        (bot/say (format "Highest karma users:\n%s" (s/join \newline message-body)))
+        (bot/say "There are no users with karma in this guild!"))))
 
   (:bottom
     "Retrieves the karma of the bottom 10 users."
-    (let [users         (take 10 (sort-by val < @user-karma))
+    (let [channel       (-> message :channel :id str)
+          users         (take 10 (sort-by val < (get @user-karma channel {})))
           message-body  (for [[user karma] users] (format "<@%s>: %s" (name user) karma))]
-      (bot/say (format "Highest karma users:\n%s" (s/join \newline message-body)))))
+      (if (not-empty users)
+        (bot/say (format "Lowest karma users:\n%s" (s/join \newline message-body)))
+        (bot/say "There are no users with karma in this guild!"))))
 
   (:clear
     "Clear the karma of all users in the channel."
     {:requires [perm/ADMINISTRATOR]}
-    (reset! user-karma {})))
+    (reset! user-karma {})
+    (config/file-io karma-file :save :data @user-karma)
+    (bot/say "I've cleared out karma across all servers.")))
 
-(defn- update-karma! [user karma-delta]
-  (let [current-karma (get @user-karma user 0)
+(defn- update-karma! [channel user karma-delta]
+  (let [current-karma (get-in @user-karma [channel user] 0)
         updated-karma (+ current-karma karma-delta)]
-    (swap! user-karma assoc user updated-karma)
+    (swap! user-karma assoc-in [channel user] updated-karma)
     (config/file-io karma-file :save :data @user-karma)
     updated-karma))
 
 (defn- calculate-karma-delta
   "Given a string of '+' and '-' characters, determines the overall karma impact."
   [delta-string]
-  (apply + (for [delta delta-string] (case (str delta) "+" 1 "-" -1))))
+  (->> delta-string
+       (map {\+ 1 \- -1})
+       (reduce + 0)))
 
 (bot/defhandler karma-message-handler [prefix client message]
   (if-let [[match user-id deltas] (re-find karma-message-pattern (:content message))]
-    (let [user-karma-delta  (calculate-karma-delta deltas)
-          new-user-karma    (update-karma! user-id user-karma-delta)]
-      (bot/say (format "Updating <@%s>'s karma to %s" user-id new-user-karma)))))
+    (let [channel           (-> message :channel :id str)
+          author            (-> message :author :id str)
+          user-karma-delta  (calculate-karma-delta deltas)]
+      (if (= author user-id)
+        (bot/say "Nice try, buddy! You can't change your own karma :smiley:")
+        (let [new-user-karma (update-karma! channel user-id user-karma-delta)]
+          (bot/say (format "Updating <@%s>'s karma to %s" user-id new-user-karma)))))))
