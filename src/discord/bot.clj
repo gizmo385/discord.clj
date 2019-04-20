@@ -13,7 +13,7 @@
 
 ;;; Defining what an Extension and a Bot is
 (defrecord Extension [command handler options])
-(defrecord DiscordBot [bot-name extensions prefix client]
+(defrecord DiscordBot [bot-name prefix client]
   java.io.Closeable
   (close [this]
     (.close (:client this))))
@@ -47,6 +47,42 @@
       (timbre/infof "Register custom message handler: %s" ~(name handler-name))
       (defn ~handler-fn-name [~prefix-param ~client-param ~message-param] ~@body)
       (add-handler! ~handler-fn-name))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Defining the global extension registry
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defonce extension-registry (atom (list)))
+(defonce extension-docs (atom {}))
+
+(defn register-extension!
+  "Creates a mapping between the supplied extension name and the handler function in the global
+   extension registry."
+  ;; extension without options
+  ([extension-name extension-function]
+   (let [extension-map {:command  extension-name
+                        :handler  extension-function
+                        :options  nil}]
+     (swap! extension-registry conj extension-map)))
+
+  ;; extension with options
+  ([extension-name extension-function extension-options]
+   (let [extension-map {:command  extension-name
+                        :handler  extension-function
+                        :options  extension-options}]
+     (swap! extension-registry conj extension-map))))
+
+(defn register-extension-docs!
+  "Add the documentation for this particular extension to the global extension documentation
+   registry."
+  [extension-name documentation]
+  (if (seq documentation)
+    (swap! extension-docs assoc extension-name documentation)))
+
+(defn get-extensions []  (map map->Extension @extension-registry))
+
+(defn clear-extensions! []
+  (reset! extension-registry (list))
+  (reset! extension-docs {}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Patch functions exposed to bot developers:
@@ -85,15 +121,15 @@
 
 (defn- dispatch-to-extensions
   "Dispatches to the supplied extensions."
-  [client message prefix extensions]
-  (doseq [{:keys [command handler] :as ext} extensions]
+  [client message prefix]
+  (doseq [{:keys [command handler] :as ext} (get-extensions)]
     (let [command-string (str prefix (name command))]
       (if (starts-with? (:content message) command-string)
         (handler client (trim-message-command message command-string))))))
 
 (defn- build-handler-fn
   "Builds a handler around a set of extensions and rebinds 'say' to send to the message source"
-  [prefix extensions]
+  [prefix]
   ;; Builds a handler function for a bot that will dispatch messages matching the supplied prefix
   ;; to the handlers of any extensions whose "command" is present immediately after the prefix
   (fn [client message]
@@ -106,7 +142,7 @@
       ;; have been installed
       (if (-> message :content (starts-with? prefix))
         (go
-          (dispatch-to-extensions client message prefix extensions)))
+          (dispatch-to-extensions client message prefix)))
 
       ;; For every message, we'll dispatch to the handlers. This allows for more sophisticated
       ;; handling of messages that don't necessarily match the prefix (i.e. matching & deleting
@@ -119,70 +155,21 @@
 (defn create-bot
   "Creates a bot that will dynamically dispatch to different extensions based on <prefix><command>
    style messages."
-  ([bot-name extensions]
-   (create-bot bot-name extensions (config/get-prefix) (types/configuration-auth)))
+  ([bot-name]
+   (create-bot bot-name (config/get-prefix) (types/configuration-auth)))
 
-  ([bot-name extensions prefix]
-   (create-bot bot-name extensions prefix (types/configuration-auth)))
+  ([bot-name prefix]
+   (create-bot bot-name prefix (types/configuration-auth)))
 
-  ([bot-name extensions prefix auth]
-   (let [handler          (build-handler-fn prefix extensions)
+  ([bot-name prefix auth]
+   (let [handler          (build-handler-fn prefix)
          discord-client   (client/create-discord-client auth handler)]
      (timbre/infof "Creating bot with prefix: %s" prefix)
-     (DiscordBot. bot-name extensions prefix discord-client))))
+     (DiscordBot. bot-name prefix discord-client))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Defining a bot and its extensions inline
+;;; Defining extensions and commands
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn build-inline-extensions
-  ([key-func-pairs]
-   (into [] (map (partial apply build-inline-extensions)
-                 (partition 2 key-func-pairs))))
-  ([fn-key fn-body]
-   `(map->Extension {:command ~fn-key
-                     :handler ~fn-body}))
-  ([fn-key fn-body command-options]
-   `(map->Extension {:command ~fn-key
-                     :handler ~fn-body
-                     :options ~command-options})))
-
-(defmacro with-extensions
-  "Given a name, prefix and series of :keyword-function pairs, builds a new bot inside of a
-   with-open block that will sleep the while background threads manage the bot."
-  [bot-name prefix & key-func-pairs]
-  `(with-open [bot# (create-bot ~bot-name ~(build-inline-extensions key-func-pairs) ~prefix)]
-     (while true (Thread/sleep 3000))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Defining global extensions and commands that get loaded dynamically on bot startup
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defonce extension-registry (atom (list)))
-(defonce extension-docs (atom {}))
-
-(defn register-extension!
-  "Creates a mapping between the supplied extension name and the handler function in the global
-   extension registry."
-  ;; extension without options
-  ([extension-name extension-function]
-   (let [extension-map {:command  extension-name
-                  :handler  extension-function
-                  :options  nil}]
-     (swap! extension-registry conj extension-map)))
-
-  ;; extension with options
-  ([extension-name extension-function extension-options]
-   (let [extension-map {:command  extension-name
-                  :handler  extension-function
-                  :options  extension-options}]
-     (swap! extension-registry conj extension-map))))
-
-(defn register-extension-docs!
-  "Add the documentation for this particular extension to the global extension documentation
-   registry."
-  [extension-name documentation]
-  (if (seq documentation)
-    (swap! extension-docs assoc extension-name documentation)))
-
 (defn- emit-subcommand-error
   "This function adds a catch-all error handling function for the extension to handle invalid
    subcommand input."
@@ -355,7 +342,10 @@
        (if (:doc ~m)
          (register-extension-docs! ~(keyword command) ~(:doc m))))))
 
-;;; Loading extensions from other files
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Loading and defining extensions from files
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn get-clojure-files
   "Given a directory, returns all '.clj' files in that folder."
   [folder]
@@ -375,40 +365,33 @@
       (timbre/infof "Loading extensions from: %s" filename)
       (load-file filename))))
 
-(defn create-extension
-  [command handler]
-  (map->Extension {:command (name command)
-                   :handler handler}))
+(defn load-extension-folders! []
+  (doseq [folder (config/get-extension-folders)]
+    (load-clojure-files-in-folder! folder))
+  (let [extensions# (get-extensions)]
+    (timbre/infof "Loaded %d extensions: %s."
+                  (count extensions#)
+                  (s/join ", " (map :command extensions#)))))
 
-(defn build-extensions [key-func-pairs]
-  (into [] (map (partial apply create-extension) key-func-pairs)))
-
-(defn get-registered-extensions
-  "Returns the current extension-registry as a list of Extensions."
-  []
-  (map map->Extension @extension-registry))
-
-(defmacro from-files
+(defmacro start
   "Creates a bot where the extensions are those present in all Clojure files present in the
    directories supplied. This allows you to dynamically add files to a extensions/ directory and
    have them get automatically loaded by the bot when it starts up."
-  [bot-name prefix folders]
+  []
   `(do
-     ;; Loads all the clojure files in the folders supplied
-     (doseq [folder# ~folders]
-       (load-clojure-files-in-folder! folder#))
+     ;; Loads all the clojure files in the folders supplied. Also load the builtin commands.
+     (load-extension-folders!)
+     (register-builtins!)
 
      ;; Opens a bot with those extensions
-     (let [extensions# (get-registered-extensions)]
-       (timbre/infof "Loaded %d extensions: %s."
-                     (count extensions#)
-                     (s/join ", " (map :command extensions#)))
-       (with-open [discord-bot# (create-bot ~bot-name extensions# ~prefix)]
-         (while true (Thread/sleep 3000))))))
+     (with-open [discord-bot# (create-bot ~(config/get-bot-name) ~(config/get-prefix))]
+       (while true (Thread/sleep 3000)))))
 
-;;; Builtin bot commands
-(defonce doc-separator (s/join (repeat 100 "-")))
-
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; These are commands that are built into the bot framework. They handle things that require
+;;; more refined access to the extension registries, like retrieving command docs or hot-reloading
+;;; the configured extension folders
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn- generate-doc-embed []
   (loop [docs   @extension-docs
          embed  (embeds/create-embed :title "Available commands:")]
@@ -417,8 +400,35 @@
              (embeds/+field embed command doc))
       embed)))
 
+(defn help-command-handler [client message]
+  (let [doc-embed (generate-doc-embed)]
+    (pm doc-embed)))
+
 (defcommand help
   [_ _]
   "Look at help information for the available extensions."
   (let [doc-embed (generate-doc-embed)]
     (pm doc-embed)))
+
+(declare register-builtins!)
+
+(defn reload-command-handler
+  [client message]
+  "Reload the configured extension folders."
+  (if (perm/has-permission? client message perm/ADMINISTRATOR)
+    (do
+      (clear-extensions!)
+      (load-extension-folders!)
+      (register-builtins!)
+      (say "Successfully reloaded all extension folders."))
+    (say "You do not have permission to reload the bot!!")))
+
+(defonce builtin-commands
+   [["reload"  reload-command-handler]
+    ["help"    help-command-handler]])
+
+(defn register-builtins! []
+  (doseq [[command handler options] builtin-commands]
+    (if options
+      (register-extension! command handler options)
+      (register-extension! command handler))))
