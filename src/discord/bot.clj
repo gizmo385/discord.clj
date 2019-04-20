@@ -35,6 +35,9 @@
 (defn add-handler! [handler]
   (swap! message-handlers conj handler))
 
+(defn clear-handlers! []
+  (reset! message-handlers []))
+
 (defn get-handlers [] @message-handlers)
 
 (defmacro defhandler
@@ -418,6 +421,7 @@
   (if (perm/has-permission? client message perm/ADMINISTRATOR)
     (do
       (clear-extensions!)
+      (clear-handlers!)
       (load-extension-folders!)
       (register-builtins!)
       (say "Successfully reloaded all extension folders."))
