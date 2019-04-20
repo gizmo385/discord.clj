@@ -10,7 +10,12 @@ The goal is to implement a [fully-compliant](https://gist.github.com/meew0/bbbbd
 
 ## Documentation
 
-For documentation, please check [the docs](/docs), where I'm compiling tutorials on the various features available in discord.clj!
+For information about the various features in discord.clj, please check [the docs](/docs):
+ * [Getting Started & Bot Configuration](/docs/bot-configuration.md)
+ * [Creating Extensions](/docs/extensions.md)
+ * [Message Handlers](/docs/message-handlers.md)
+ * [Message Embeds](/docs/embeds.md)
+ * [Extension Permissions](/docs/permissions.md)
 
 ## Installation
 
