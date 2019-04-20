@@ -61,21 +61,21 @@
 
      ;; Read messages coming from the server and pass them to the handler
      (go-loop []
-       (if-let [message (<! recv-chan)]
+       (when-let [message (<! recv-chan)]
          (if (-> message :author :bot? not)
            (try
              (message-handler client message)
-             (catch Exception e (timbre/errorf "Error handling message: %s" e)))))
-       (recur))
+             (catch Exception e (timbre/errorf "Error handling message: %s" e))))
+         (recur)))
 
      ;; Read messages from the send channel and call send-message on them. This allows for
      ;; asynchronous messages sending
      (go-loop []
-       (if-let [{:keys [channel content embed tts]} (<! send-chan)]
+       (when-let [{:keys [channel content embed tts]} (<! send-chan)]
          (try
            (send-message client channel content embed tts)
-           (catch Exception e (timbre/errorf "Error sending message: %s" e))))
-       (recur))
+           (catch Exception e (timbre/errorf "Error sending message: %s" e)))
+         (recur)))
 
      ;; Return the client that we created
      client)))
