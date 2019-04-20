@@ -33,4 +33,4 @@ define an embed message:
 
 This should result in something like the below image:
 
-![Embed Test](resources/images/embedtest.png)
+![Embed Test](/resources/images/embedtest.png)
