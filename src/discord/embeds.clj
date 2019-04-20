@@ -49,27 +49,27 @@
   (update embed :fields conj (EmbedField. name value inline)))
 
 (defn +video
-  "Sets the footer in the supplied message embed."
+  "Adds a video to the embed message"
   [embed & {:keys [url height width]}]
   (assoc embed :video (EmbedVideo. url height width)))
 
 (defn +image
-  "Sets the footer in the supplied message embed."
+  "Adds an image to the embed message"
   [embed & {:keys [url proxy-url height width]}]
   (assoc embed :image (EmbedImage. url proxy-url height width)))
 
 (defn +provider
-  "Sets the footer in the supplied message embed."
+  "Sets the provider in the supplied message embed."
   [embed & {:keys [name url]}]
   (assoc embed :provider (EmbedProvider. name url)))
 
 (defn +author
-  "Sets the footer in the supplied message embed."
+  "Sets the author in the supplied message embed."
   [embed & {:keys [name url icon-url proxy-icon-url]}]
   (assoc embed :author (EmbedAuthor. name url icon-url proxy-icon-url)))
 
 (defn +thumbnail
-  "Sets the footer in the supplied message embed."
+  "Sets the thumbnail in the supplied message embed."
   [embed & {:keys [url proxy-url height width]}]
   (assoc embed :thumbnail (EmbedThumbnail. url proxy-url height width)))
 
