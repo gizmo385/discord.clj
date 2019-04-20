@@ -26,3 +26,10 @@
            (get replacements)
            ->snowflake
            str))))
+
+(defn rgb->integer [r g b]
+  (-> r
+      (bit-shift-left 8)
+      (+ g)
+      (bit-shift-left 8)
+      (+ b)))
