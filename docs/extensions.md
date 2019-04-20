@@ -150,4 +150,8 @@ slew of tasks, including guild, channel, and user maintenance.
 
 # Extension Setting Management
 
-TODO
+For examples of persisting settings throughout restarts for an extension, check out the
+[block](https://github.com/gizmo385/discord.clj/blob/develop/src/discord/extensions/block.clj)
+extension or the
+[alias](https://github.com/gizmo385/discord.clj/blob/develop/src/discord/extensions/alias.clj)
+extension.
