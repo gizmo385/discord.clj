@@ -47,11 +47,11 @@ The second argument to `bot/defcommand` is a vector declaring the names that we 
 arguments to every extension to. When an extension is invoked in the bot, two arguments are passed
 to the command:
 
-1. The [Client](https://github.com/gizmo385/discord.clj/blob/develop/src/discord/client.clj) object,
+1. The [Client](/src/discord/client.clj) object,
    which facilitates communication with Discord and its APIs.
 
 2. The
-   [Message](https://github.com/gizmo385/discord.clj/blob/develop/src/discord/gateway.clj#L14-L17)
+   [Message](/src/discord/gateway.clj#L14-L17)
    object that was received by the bot, triggering the extension. There is a lot of information
    available inside of the Message object:
 
@@ -69,14 +69,14 @@ to the command:
 | id | The unique Snowflake ID  for the message |
 
 †: Discussion of how to create
-[Embed](https://github.com/gizmo385/discord.clj/blob/master/src/discord/embeds.clj) objects is
+[Embed](/srcdiscord/embeds.clj) objects is
 available [here](embeds.md).
 
 \* Definition of the
-[Channel](https://github.com/gizmo385/discord.clj/blob/master/src/discord/http.clj#L56) object.
+[Channel](/srcdiscord/http.clj#L56) object.
 
 \*\* Definition of the
-[User](https://github.com/gizmo385/discord.clj/blob/master/src/discord/http.clj#L36-L37) object.
+[User](/srcdiscord/http.clj#L36-L37) object.
 
 The  third argument to `bot/defcommand` is optional documentation for the command that you're
 defining. The bot comes with a builtin `help` command that will PM the user with information about
@@ -94,7 +94,7 @@ mentioning:
 * `bot/pm`: This will send a private message back to the user who send the message triggering the
   your command/extension. The call format for this is the same as the calling format for `bot/say`.
 * `bot/delete`: This will delete a message. Instead of sending text or an
-[Embed](https://github.com/gizmo385/discord.clj/blob/master/src/discord/embeds.clj#L19-L20) object
+[Embed](/src/discord/embeds.clj#L19-L20) object
 like you might for `bot/say` or `bot/pm`, the `bot/delete` call expects to be given the entire
 message object, so that it can access the ID necessary to delete the message.
 
@@ -144,14 +144,14 @@ commands on your bot!
 
 The last thing that I want to draw attention to in this extension definition is the inclusion and
 use of the `http` namespace. The
-[http](https://github.com/gizmo385/discord.clj/blob/master/src/discord/http.clj) namespace contains
+[http](/src/discord/http.clj) namespace contains
 helpers functions for most of the exposed Discord API endpoints and can be used to perform a whole
 slew of tasks, including guild, channel, and user maintenance.
 
 # Extension Setting Management
 
 For examples of persisting settings throughout restarts for an extension, check out the
-[block](https://github.com/gizmo385/discord.clj/blob/develop/src/discord/extensions/block.clj)
+[block](/src/discord/extensions/block.clj)
 extension or the
-[alias](https://github.com/gizmo385/discord.clj/blob/develop/src/discord/extensions/alias.clj)
+[alias](/src/discord/extensions/alias.clj)
 extension.
