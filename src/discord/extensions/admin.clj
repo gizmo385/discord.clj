@@ -42,7 +42,6 @@
 
   (:voiceregion
     "Returns the current voice region for the guild."
-    {:requires [perm/MANAGE-GUILD]}
     (let [guild-id      (get-in message [:channel :guild-id])
           guild         (http/get-guild client guild-id)
           voice-region  (-> guild :region name)]
@@ -50,7 +49,6 @@
 
   (:regionlist
     "Lists all supported voice regions."
-    {:requires [perm/MANAGE-GUILD]}
     (bot/say (format "Supported voice regions: %s" (s/join ", " (keys types/server-region)))))
 
   (:regionmove
