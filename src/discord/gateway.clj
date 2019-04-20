@@ -163,7 +163,7 @@
 
 (defmethod handle-gateway-message nil
   [discord-message gateway receive-chan]
-  ;; A message type of "nil" the message is an event that is handle differently
+  ;; A message type of "nil" the message is an event that is handled differently
   (handle-gateway-control-event discord-message gateway receive-chan))
 
 (defmethod handle-gateway-message :default
@@ -187,18 +187,17 @@
   "Sends an identification message to the supplied Gateway. This tells the Discord gateway
    information about ourselves."
   [gateway]
-  (let [identify (format-gateway-message
-                   :identify
-                   {:token (types/token gateway)
-                    :properties {"$os"                "linux"
-                                 "$browser"           "discord.clj"
-                                 "$device"            "discord.clj"
-                                 "$referrer"          ""
-                                 "$referring_domain"  ""}
-                    :compress false
-                    :large_threshold 250
-                    :shard [0 (:shards gateway)]})]
-    (send-message gateway identify)))
+  (->> {:token (types/token gateway)
+        :properties {"$os"                "linux"
+                     "$browser"           "discord.clj"
+                     "$device"            "discord.clj"
+                     "$referrer"          ""
+                     "$referring_domain"  ""}
+        :compress false
+        :large_threshold 250
+        :shard [0 (:shards gateway)]}
+       (format-gateway-message :identify)
+       (send-message gateway)))
 
 (defn send-heartbeat [gateway seq-num]
   (let [heartbeat (format-gateway-message :heartbeat @seq-num)]
@@ -207,13 +206,11 @@
 (defn send-resume [gateway]
   (let [session-id  (:session-id gateway)
         seq-num     @(:seq-num gateway)]
-    (send-message
-      gateway
-      (format-gateway-message
-        :resume
-        {:token           (types/token gateway)
-         :session_id      session-id
-         :seq             seq-num}))))
+    (->> {:token           (types/token gateway)
+          :session_id      session-id
+          :seq             seq-num}
+         (format-gateway-message :resume)
+         (send-message gateway))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Establishing a connection to the Discord gateway and begin reading messages from it.
