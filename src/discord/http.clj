@@ -258,8 +258,7 @@
 ;;; Managing messages
 (defn send-message [auth channel content & {:keys [tts embed]}]
   (let [embed-map (embeds/embed->map embed)
-        payload   {:content content :tts (boolean tts) :embed embed-map}
-        payload   (if (empty? embed-map) payload (assoc payload :embed embed-map))]
+        payload   {:content content :tts (boolean tts) :embed embed-map}]
     (discord-request :send-message auth :channel channel :json payload)))
 
 (defn delete-message [auth channel message]
