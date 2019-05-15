@@ -376,20 +376,6 @@
                   (count extensions#)
                   (s/join ", " (map :command extensions#)))))
 
-(defmacro start
-  "Creates a bot where the extensions are those present in all Clojure files present in the
-   directories supplied. This allows you to dynamically add files to a extensions/ directory and
-   have them get automatically loaded by the bot when it starts up."
-  []
-  `(do
-     ;; Loads all the clojure files in the folders supplied. Also load the builtin commands.
-     (load-extension-folders!)
-     (register-builtins!)
-
-     ;; Opens a bot with those extensions
-     (with-open [discord-bot# (create-bot ~(config/get-bot-name) ~(config/get-prefix))]
-       (while true (Thread/sleep 3000)))))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; These are commands that are built into the bot framework. They handle things that require
 ;;; more refined access to the extension registries, like retrieving command docs or hot-reloading
@@ -436,3 +422,20 @@
     (if options
       (register-extension! command handler options)
       (register-extension! command handler))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; General purpose bot start function
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn start!
+  "Creates a bot where the extensions are those present in all Clojure files present in the
+   directories supplied. This allows you to dynamically add files to a extensions/ directory and
+   have them get automatically loaded by the bot when it starts up."
+  []
+  ;; Loads all the clojure files in the folders supplied. Also load the builtin commands.
+  (load-extension-folders!)
+  (register-builtins!)
+
+  ;; Opens a bot with those extensions
+  (with-open [discord-bot (create-bot (config/get-bot-name) (config/get-prefix))]
+    (while true (Thread/sleep 3000))))
+
