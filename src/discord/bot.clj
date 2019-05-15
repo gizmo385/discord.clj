@@ -127,7 +127,7 @@
   [client message prefix]
   (doseq [{:keys [command handler] :as ext} (get-extensions)]
     (let [command-string (str prefix (name command))]
-      (if (starts-with? (:content message) command-string)
+      (if (-> message :content utils/words first (= command-string))
         (handler client (trim-message-command message command-string))))))
 
 (defn- build-handler-fn
