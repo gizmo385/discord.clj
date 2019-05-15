@@ -147,14 +147,12 @@
       ;; If the message starts with the bot prefix, we'll dispatch to any extension extensions that
       ;; have been installed
       (if (-> message :content (starts-with? prefix))
-        (go
-          (dispatch-to-extensions client message prefix)))
+        (go (dispatch-to-extensions client message prefix)))
 
       ;; For every message, we'll dispatch to the handlers. This allows for more sophisticated
       ;; handling of messages that don't necessarily match the prefix (i.e. matching & deleting
       ;; messages with swear words).
-      (go
-        (dispatch-to-handlers prefix client message)))))
+      (go (dispatch-to-handlers prefix client message)))))
 
 
 ;;; General bot creation
@@ -392,15 +390,8 @@
              (embeds/+field embed command doc))
       embed)))
 
-(defn help-command-handler [client message]
-  (let [doc-embed (generate-doc-embed)]
-    (pm doc-embed)))
-
-(defcommand help
-  [_ _]
-  "Look at help information for the available extensions."
-  (let [doc-embed (generate-doc-embed)]
-    (pm doc-embed)))
+(defn help-command-handler [_ _]
+  (pm (generate-doc-embed)))
 
 (declare register-builtins!)
 
