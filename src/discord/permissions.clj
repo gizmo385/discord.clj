@@ -83,12 +83,11 @@
     (apply
       bit-or
       (for [role guild-roles]
-        (do
-          (if (some #{(:id role)} user-roles)
+        (if (some #{(:id role)} user-roles)
           ;; If the user has the role, then we'll return that role's permissions. If not, we return
           ;; 0 since it will not affect the permission calculations later on.
           (:permissions role)
-          0))))))
+          0)))))
 
 (defn has-permission?
   "Determines if a user has been granted a particular permission."
