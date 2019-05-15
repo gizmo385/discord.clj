@@ -131,7 +131,10 @@
         (handler client (trim-message-command message command-string))))))
 
 (defn- build-handler-fn
-  "Builds a handler around a set of extensions and rebinds 'say' to send to the message source"
+  "Builds a handler function based on the bot prefix. A handler function is a function that takes 2
+   arguments, a client and message. If a message begins with the configured prefix, then this
+   function will dispatch the message to the registered extensions in a go block. This function will
+   also dispatch the message to all registered handlers in a separate go block."
   [prefix]
   ;; Builds a handler function for a bot that will dispatch messages matching the supplied prefix
   ;; to the handlers of any extensions whose "command" is present immediately after the prefix
