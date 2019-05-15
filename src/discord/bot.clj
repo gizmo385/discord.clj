@@ -177,11 +177,13 @@
 (defn- emit-subcommand-error
   "This function adds a catch-all error handling function for the extension to handle invalid
    subcommand input."
-  [extension-name]
-  `(defmethod ~extension-name :default [_# message#]
-     (say (format "Unrecognized subcommand: %s"
-                  ~(name extension-name)
-                  (-> message# :content utils/words first)))))
+  [extension-fn-name extension-name]
+  `(defmethod ~extension-fn-name :default [_# message#]
+     (if (-> message# :content s/trim empty?)
+       (say "Must supply a subcommand!")
+       (say (format "Unrecognized subcommand for %s: %s"
+                    ~(str extension-name)
+                    (-> message# :content utils/words first))))))
 
 (defn- emit-subcommand
   "For each of the defined subcommands, we need to define a multimethod that handles that
@@ -290,7 +292,7 @@
        (register-extension! ~(keyword extension-name) ~extension-fn-name ~options)
 
        ;; Supply a "default" error message responding back with an unknown command message
-       ~(emit-subcommand-error extension-fn-name)
+       ~(emit-subcommand-error extension-fn-name extension-name)
 
        ;; Add the docstring and the arglist to this command
        (alter-meta! (var ~extension-fn-name) assoc
