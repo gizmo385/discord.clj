@@ -434,4 +434,3 @@
   ;; Opens a bot with those extensions
   (with-open [discord-bot (create-bot (config/get-bot-name) (config/get-prefix))]
     (while true (Thread/sleep 3000))))
-
