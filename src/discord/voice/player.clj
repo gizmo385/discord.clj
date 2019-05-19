@@ -89,10 +89,7 @@
     (let [player (.createPlayer player-manager)
           track-scheduler (new-track-scheduler player music-queue)]
       (.addListener player track-scheduler)
-      (SimpleAudioPlayer. player-manager
-                          player
-                          track-scheduler
-                          music-queue))))
+      (SimpleAudioPlayer. player-manager player track-scheduler music-queue))))
 
 (comment
   (let [player (build-simple-audio-player)
@@ -108,7 +105,9 @@
     (timbre/infof "Active Track: %s" (current-track player))
     (timbre/infof "Paused? Track: %s" (paused? player))
     (timbre/infof "Current track info %s" (track-info player))
-    (timbre/infof "First time frame: %s" (next-audio-frame player))
+    (let [frame (next-audio-frame player)]
+      (timbre/infof "Audio frame: %s" frame)
+      (timbre/infof "Frame format: %s" (.getFormat frame)))
     )
 
   )
