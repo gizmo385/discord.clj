@@ -62,16 +62,16 @@
     (.isPaused (:player this)))
 
   (track-info [this]
-    (let [track (current-track this)
-          info (.getInfo track)]
-      {:raw-info info
-       :title (.title info)
-       :author (.author info)
-       :length (/ (.length info) const/MILLISECONDS-IN-SECOND)
-       :identifier (.identifier info)
-       :stream? (.isStream info)
-       :current-position (/ (.getPosition track) const/MILLISECONDS-IN-SECOND)
-       :uri (.uri info)}))
+    (if-let [track (current-track this)]
+      (let [info (.getInfo track)]
+        {:raw-info info
+         :title (.title info)
+         :author (.author info)
+         :length (/ (.length info) const/MILLISECONDS-IN-SECOND)
+         :identifier (.identifier info)
+         :stream? (.isStream info)
+         :current-position (/ (.getPosition track) const/MILLISECONDS-IN-SECOND)
+         :uri (.uri info)})))
 
   (next-audio-frame [this]
     (next-audio-frame this 5000 TimeUnit/MILLISECONDS))
