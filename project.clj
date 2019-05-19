@@ -22,7 +22,8 @@
                  [stylefruits/gniazdo "1.0.0"]
 
                  ;; Libraries used for voice and playing audio
-                 [com.sedmelluq/lavaplayer "1.3.17"]]
+                 [com.sedmelluq/lavaplayer "1.3.17"]
+                 [caesium "0.12.0"]]
   :repositories [["jcenter" {:url "https://jcenter.bintray.com"}]]
   :main ^:skip-aot discord.core
   :target-path "target/%s"
