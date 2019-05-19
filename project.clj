@@ -10,7 +10,9 @@
                  [com.taoensso/timbre "4.10.0"]
                  [org.clojure/data.json "0.2.6"]
                  [overtone/at-at "1.2.0"]
-                 [stylefruits/gniazdo "1.0.0"]]
+                 [stylefruits/gniazdo "1.0.0"]
+                 [com.sedmelluq/lavaplayer "1.3.17"]]
+  :repositories [["jcenter" {:url "https://jcenter.bintray.com"}]]
   :main ^:skip-aot discord.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})
