@@ -17,7 +17,23 @@
   (track-info [this])
   (next-audio-frame [this] [this timeout time-unit]))
 
+ (defn- get-track-info
+   "Retrieves the information about a track and builds a Clojure map out of that
+   information."
+   [track]
+  (let [info (.getInfo track)]
+    {:raw-info info
+     :title (.title info)
+     :author (.author info)
+     :length (/ (.length info) const/MILLISECONDS-IN-SECOND)
+     :identifier (.identifier info)
+     :stream? (.isStream info)
+     :current-position (/ (.getPosition track) const/MILLISECONDS-IN-SECOND)
+     :uri (.uri info)}))
+
 (defn new-track-scheduler
+  "Builds a track scheduler, which is an implementation of the AudioEventAdapter
+  interface. The track scheduler handles the management of the music queue."
   [player queue]
   (proxy [AudioEventAdapter] []
     (onTrackEnd [player track end-reason]
@@ -26,6 +42,8 @@
         (.nextTrack this)))))
 
 (defn new-load-result-handler
+  "Builds an implementation of an AudioLoadResultHandler, which handles different
+  situations that can arise after attempting to load a new audio track."
   [simple-audio-player track-identifier]
   (proxy [AudioLoadResultHandler] []
     (trackLoaded [track]
@@ -63,15 +81,7 @@
 
   (track-info [this]
     (if-let [track (current-track this)]
-      (let [info (.getInfo track)]
-        {:raw-info info
-         :title (.title info)
-         :author (.author info)
-         :length (/ (.length info) const/MILLISECONDS-IN-SECOND)
-         :identifier (.identifier info)
-         :stream? (.isStream info)
-         :current-position (/ (.getPosition track) const/MILLISECONDS-IN-SECOND)
-         :uri (.uri info)})))
+      (get-track-info track)))
 
   (next-audio-frame [this]
     (next-audio-frame this 5000 TimeUnit/MILLISECONDS))
@@ -79,7 +89,11 @@
   (next-audio-frame [this timeout time-unit]
     (.provide (:player this) timeout time-unit)))
 
-(defn build-simple-audio-player []
+(defn build-simple-audio-player
+  "Builds a SimpleAudioPlayer record, which implements the AudioPlayer protocol. This
+  record will contain a player manager, an audio player, a music queue, and a track
+  scheduler that manages that music queue."
+  []
   (let [player-manager (new DefaultAudioPlayerManager)
         music-queue (new LinkedBlockingQueue)]
     ;; This ensures that loading items can happen from various sources, such as local to
