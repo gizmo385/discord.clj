@@ -21,9 +21,14 @@
                  ;; Websocket connection manager
                  [stylefruits/gniazdo "1.0.0"]
 
-                 ;; Libraries used for voice and playing audio
+                 ;; Audio stream handling
                  [com.sedmelluq/lavaplayer "1.3.17"]
-                 [caesium "0.12.0"]]
+
+                 ;; Encryption for sending audio data using RTP
+                 [caesium "0.12.0"]
+
+                 ;; UDP connection management
+                 [aleph "0.4.6"]]
   :repositories [["jcenter" {:url "https://jcenter.bintray.com"}]]
   :main ^:skip-aot discord.core
   :target-path "target/%s"
