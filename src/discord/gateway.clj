@@ -2,20 +2,14 @@
   "This implements the Discord Gateway protocol"
   (:require [clojure.core.async :refer [>! <! go go-loop] :as async]
             [clojure.data.json :as json]
-            [clojure.set :refer [map-invert]]
             [gniazdo.core :as ws]
             [taoensso.timbre :as timbre]
             [discord.http :as http]
             [discord.permissions :as perm]
-            [discord.types :refer [Authenticated Snowflake ->snowflake] :as types]
+            [discord.types :as types]
             [discord.config :as config]))
 
-;;; Representing a message from the API
-(defrecord Message [content attachments embeds sent-time channel author user-mentions role-mentions
-                    pinned? everyone-mentioned? id]
-  Snowflake
-  (->snowflake [message] (:id message)))
-
+;;; Building a message from a Gateway
 (defn build-message
   "Builds a Message record based on the incoming Message from the Discord Gateway. The Gateway
    record that received the message is passed as the second argument to this function."
@@ -23,9 +17,11 @@
   (let [user-wrap (fn [user-map] {:user user-map})
         author    (http/build-user (user-wrap (get-in message-map [:d :author])))
         channel   (http/get-channel gateway (get-in message-map [:d :channel_id]))
-        users     (map (comp http/build-user user-wrap) (get-in message-map [:d :mentions]))
-        roles     (map (comp http/build-user user-wrap) (get-in message-map [:d :role_mentions]))]
-    (map->Message
+        users     (map (comp http/build-user user-wrap)
+                       (get-in message-map [:d :mentions]))
+        roles     (map (comp http/build-user user-wrap)
+                       (get-in message-map [:d :role_mentions]))]
+    (types/map->Message
       {:author                author
        :user-mentions         users
        :role-mentions         roles
@@ -42,8 +38,8 @@
 (defprotocol Gateway
   (send-message [this message]))
 
-(defrecord DiscordGateway [url shards websocket auth seq-num session-id heartbeat-interval
-                           stop-heartbeat-channel]
+(defrecord DiscordGateway [url shards websocket auth seq-num session-id
+                           heartbeat-interval stop-heartbeat-channel]
   java.io.Closeable
   (close [this]
     (when (:websocket this)
@@ -51,7 +47,7 @@
     (when (:stop-heartbeat-channel this)
       (async/close! (:stop-heartbeat-channel this))))
 
-  Authenticated
+  types/Authenticated
   (token [this]
     (types/token (:auth this)))
   (token-type [this]
@@ -68,23 +64,7 @@
 
 
 ;;; The different kinds of messages that we can receive from Discord
-(defonce message-name->code
-  {:dispatch            0
-   :heartbeat           1
-   :identify            2
-   :presence            3
-   :voice-state         4
-   :voice-ping          5
-   :resume              6
-   :reconnect           7
-   :request-members     8
-   :invalidate-session  9
-   :hello               10
-   :heartbeat-ack       11
-   :guild-sync          12})
 
-(defonce message-code->name
-  (map-invert message-name->code))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Handling server EVENTS
@@ -93,7 +73,7 @@
   "Handling server control events. Control events are control messages sent by the Gateway to a
    connected client to inform the client about disconnects, reconnects, rate limits, etc."
   (fn [discord-event gateway receive-chan]
-    (message-code->name (:op discord-event))))
+    (types/message-code->name (:op discord-event))))
 
 (defmethod handle-gateway-control-event :hello
   [discord-event gateway receive-chan]
@@ -108,7 +88,7 @@
 
 (defmethod handle-gateway-control-event :default
   [discord-event gateway receive-chan]
-  (timbre/infof "Event of Type: %s" (message-code->name (:op discord-event))))
+  (timbre/infof "Event of Type: %s" (types/message-code->name (:op discord-event))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Handles non-control-flow messages from the Discord gateway. Any messages dealing with metadata
@@ -179,7 +159,7 @@
   "Builds the correct map structure with the correct op-codes. If the op-code supplied is not found,
    an (ex-info) Exception will be raised"
   [op data]
-  (if-let [op-code (message-name->code op)]
+  (if-let [op-code (types/message-name->code op)]
     {:op op-code :d data}
     (throw (ex-info "Unknown op-code" {:op-code op}))))
 

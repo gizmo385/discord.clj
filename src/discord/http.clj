@@ -11,7 +11,7 @@
             [slingshot.slingshot :refer [try+]]
             [taoensso.timbre :as timbre]
             [discord.embeds :as embeds]
-            [discord.types :refer [Authenticated Snowflake ->snowflake] :as types]
+            [discord.types :as types]
             [discord.utils :as utils]))
 
 ;;; Global constants for interacting with the API
@@ -22,12 +22,8 @@
 ;;; Defining Records relevant to the Discord APIs, as well as more useful constructors for
 ;;; those Records.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defrecord Server [id name permissions owner? icon region]
-  Snowflake
-  (->snowflake [server] (-> server :id Long/parseLong)))
-
 (defn build-server [server-map]
-  (map->Server
+  (types/map->Server
     {:id          (:id server-map)
      :name        (:name server-map)
      :owner?      (:owner server-map)
@@ -35,46 +31,31 @@
      :permissions (:permissions server-map)
      :region      (get types/server-region (:region server-map))}))
 
-(defrecord User [id username mention bot? mfa-enabled? verified? roles deaf mute avatar joined
-                 discriminator]
-  Snowflake
-  (->snowflake [user] (-> user :id Long/parseLong)))
-
 (defn build-user [user-map]
   (let [user-id (-> user-map :user :id)
         mention (str \@ user-id)]
-    (map->User
-    {:id            user-id
-     :mention       mention
-     :deaf          (:deaf user-map)
-     :mute          (:mute user-map)
-     :roles         (:roles user-map)
-     :joined        (:joined_at user-map)
-     :bot?          (-> user-map :user :bot)
-     :mfa-enabled?  (-> user-map :user :mfa_enabled)
-     :verified?     (-> user-map :user :verified)
-     :username      (-> user-map :user :username)
-     :avatar        (-> user-map :user :avatar)
-     :discriminator (-> user-map :user :discriminator)})))
-
-(defrecord Channel [id guild-id name type position topic]
-  Snowflake
-  (->snowflake [channel] (-> channel :id Long/parseLong)))
-
-(defonce channel-type-map
-  {0      :text
-   :text  :text
-   2      :voice
-   :voice :voice})
+    (types/map->User
+      {:id            user-id
+       :mention       mention
+       :deaf          (:deaf user-map)
+       :mute          (:mute user-map)
+       :roles         (:roles user-map)
+       :joined        (:joined_at user-map)
+       :bot?          (-> user-map :user :bot)
+       :mfa-enabled?  (-> user-map :user :mfa_enabled)
+       :verified?     (-> user-map :user :verified)
+       :username      (-> user-map :user :username)
+       :avatar        (-> user-map :user :avatar)
+       :discriminator (-> user-map :user :discriminator)})))
 
 (defn build-channel [channel-map]
-  (map->Channel
+  (types/map->Channel
     {:guild-id  (:guild_id channel-map)
      :name      (:name channel-map)
      :topic     (:topic channel-map)
      :position  (:position channel-map)
      :id        (:id channel-map)
-     :type      (get channel-type-map (:type channel-map))}))
+     :type      (get types/channel-type (:type channel-map))}))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -390,7 +371,7 @@
     (discord-request :create-channel auth :guild guild :json request-params)))
 
 (defn create-dm-channel [auth user]
-  (let [json-params {:recipient_id (->snowflake user)}]
+  (let [json-params {:recipient_id (types/->snowflake user)}]
     (build-channel (into {} (discord-request :create-dm-channel auth :json json-params)))))
 
 (defn edit-channel [auth channel & {:keys [name topic bitrate position] :as params}]

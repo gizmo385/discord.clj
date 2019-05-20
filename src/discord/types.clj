@@ -1,22 +1,17 @@
 (ns discord.types
-  "Types returned from the Discord APIs and proper constructors to transform the API responses
-   into the corresponding records"
+  "General data types that are useful throughout Discord.cl"
   (:require [discord.config :as config]
+            [clojure.set :refer [map-invert]]
             [clojure.data.json :as json]
             [gniazdo.core :as ws]))
 
-;;; Some global constants
-(defonce api-version 6)
-
-;;; General Discord protocols
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Authentication
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defprotocol Authenticated
   (token [this])
   (token-type [this]))
 
-
-;;; This simple configuration implementation is for bots that just use the standard configuration
-;;; file for their Discord auth token. A different Authenticated implementation can be supplied if
-;;; desired
 (defrecord SimpleAuth [auth-token]
   Authenticated
   (token [_] auth-token)
@@ -29,10 +24,14 @@
     (SimpleAuth. auth-token)))
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; The Discord Snowflake Protocol
+;;;
 ;;; Discord uses Snowflakes for their distinct IDs for messages, users, etc. The protocol,
 ;;; originally created by Twitter, is documented (as used by Discord) on their developer
 ;;; documentation here:
 ;;;   https://discordapp.com/developers/docs/reference#snowflakes
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defprotocol Snowflake
   "Defining types which are Snowflakes according to the Discord API. These are objects which have
    unique IDs in the Discord API"
@@ -47,9 +46,55 @@
   String
     (->snowflake [s] s))
 
-;;; Mapping the returns from the Discord API enumerated types into Clojure keywords
-(defonce channel-type
+(defrecord Message [content attachments embeds sent-time channel author user-mentions
+                    role-mentions pinned? everyone-mentioned? id]
+  Snowflake
+  (->snowflake [message] (:id message)))
+
+(defrecord Server [id name permissions owner? icon region]
+  Snowflake
+  (->snowflake [server] (-> server :id Long/parseLong)))
+
+(defrecord User [id username mention bot? mfa-enabled? verified? roles deaf mute
+                 avatar joined discriminator]
+  Snowflake
+  (->snowflake [user] (-> user :id Long/parseLong)))
+
+(defrecord Channel [id guild-id name type position topic]
+  Snowflake
+  (->snowflake [channel] (-> channel :id Long/parseLong)))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; General Discord constant information
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defonce api-version 6)
+(defonce voice-gateway-version 3)
+
+(defonce message-name->code
+  {:dispatch            0
+   :heartbeat           1
+   :identify            2
+   :presence            3
+   :voice-state         4
+   :voice-ping          5
+   :resume              6
+   :reconnect           7
+   :request-members     8
+   :invalidate-session  9
+   :hello               10
+   :heartbeat-ack       11
+   :guild-sync          12})
+
+(defonce message-code->name
+  (map-invert message-name->code))
+
+(defonce channel-classifier
   [:text :private :voice :group])
+
+(defonce channel-type
+  {0      :text
+   :text  :text
+   2      :voice
+   :voice :voice})
 
 (defonce verification-level
   [:none :low :medium :high :table-flip])
