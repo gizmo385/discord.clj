@@ -1,13 +1,13 @@
 (ns discord.gateway
   "This implements the Discord Gateway protocol"
-  (:require [clojure.core.async :refer [>! <! go go-loop] :as async]
-            [clojure.data.json :as json]
-            [gniazdo.core :as ws]
-            [taoensso.timbre :as timbre]
-            [discord.http :as http]
-            [discord.permissions :as perm]
-            [discord.types :as types]
-            [discord.config :as config]))
+  (:require
+    [clojure.core.async :refer [>! <! go go-loop] :as async]
+    [clojure.data.json :as json]
+    [gniazdo.core :as ws]
+    [taoensso.timbre :as timbre]
+    [discord.http :as http]
+    [discord.permissions :as perm]
+    [discord.types :as types]))
 
 ;;; Building a message from a Gateway
 (defn build-message
@@ -15,12 +15,19 @@
    record that received the message is passed as the second argument to this function."
   [message-map gateway]
   (let [user-wrap (fn [user-map] {:user user-map})
-        author    (http/build-user (user-wrap (get-in message-map [:d :author])))
         channel   (http/get-channel gateway (get-in message-map [:d :channel_id]))
-        users     (map (comp http/build-user user-wrap)
-                       (get-in message-map [:d :mentions]))
-        roles     (map (comp http/build-user user-wrap)
-                       (get-in message-map [:d :role_mentions]))]
+        author    (-> message-map
+                      (get-in [:d :author])
+                      (user-wrap)
+                      (http/build-user))
+        users     (-> message-map
+                      (get-in [:d :mentions])
+                      (map user-wrap)
+                      (map http/build-user))
+        roles     (-> message-map
+                      (get-in [:d :role_mentions])
+                      (map user-wrap)
+                      (map http/build-user))]
     (types/map->Message
       {:author                author
        :user-mentions         users
@@ -57,14 +64,16 @@
   (send-message [this message]
     (ws/send-msg @(:websocket this) (json/write-str message))))
 
-(defn build-gateway [gateway-response]
+(defn build-gateway
+  "Fills out basic information in the DiscordGateway record based on a response from
+  the Discord API used to discover the correct gateway to connect to."
+  [gateway-response]
   (let [gateway-map (into {} gateway-response)
-        url         (format "%s?v=%s&encoding=%s" (:url gateway-map) types/api-version "json")]
+        url         (format "%s?v=%s&encoding=%s"
+                            (:url gateway-map)
+                            types/api-version
+                            "json")]
     (map->DiscordGateway (assoc gateway-map :url url))))
-
-
-;;; The different kinds of messages that we can receive from Discord
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Handling server EVENTS
@@ -83,7 +92,7 @@
     (timbre/infof "Setting heartbeat interval to %d milliseconds" new-heartbeat)
     (reset! heartbeat-atom new-heartbeat)))
 
-;;; Since there is nothing to do regarding a heartback ACK message, we'll just ignore it.
+;;; Since there is nothing to do with a heartback ACK message, we'll just ignore it.
 (defmethod handle-gateway-control-event :heartbeat-ack [& _])
 
 (defmethod handle-gateway-control-event :default
@@ -148,7 +157,9 @@
 
 (defmethod handle-gateway-message :default
   [discord-message gateway receive-chan]
-  (timbre/infof "Unknown message of type %s received: %s" (keyword (:t discord-message)) discord-message))
+  (timbre/infof "Unknown message of type %s received: %s"
+                (keyword (:t discord-message))
+                discord-message))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -157,11 +168,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn format-gateway-message
   "Builds the correct map structure with the correct op-codes. If the op-code supplied is not found,
-   an (ex-info) Exception will be raised"
+withan (ex-info) Exception will be raised"
   [op data]
   (if-let [op-code (types/message-name->code op)]
     {:op op-code :d data}
-    (throw (ex-info "Unknown op-code" {:op-code op}))))
+    (throw (ex-info "Attempting to send message with unknown OP code"
+                    {:op-code op}))))
 
 (defn send-identify
   "Sends an identification message to the supplied Gateway. This tells the Discord gateway
@@ -179,11 +191,17 @@
        (format-gateway-message :identify)
        (send-message gateway)))
 
-(defn send-heartbeat [gateway seq-num]
+(defn send-heartbeat
+  "Send a heartbeat message to the Discord `gateway`, leveraging the supplied `seq-num`
+  atom for determining the sequence number."
+  [gateway seq-num]
   (let [heartbeat (format-gateway-message :heartbeat @seq-num)]
     (send-message gateway heartbeat)))
 
-(defn send-resume [gateway]
+(defn send-resume
+  "Send a message to the Discord `gateway` announcing your intention to reconnect after
+  experiencing some form of disconnection event."
+  [gateway]
   (let [session-id  (:session-id gateway)
         seq-num     @(:seq-num gateway)]
     (->> {:token           (types/token gateway)
@@ -237,8 +255,9 @@
                         (reconnect-gateway gateway))
                       (timbre/infof "Closing Gateway websocket, not reconnecting (%d)." status))))))
 
-;;; There are a few elements of state that a Discord gateway connection needs to track, such as
-;;; its sequence number, its heartbeat interval, the websocket connection, and its I/O channels.
+;;; There are a few elements of state that a Discord gateway connection needs to track,
+;;; such as its sequence number, its heartbeat interval, the websocket connection, and
+;;; its I/O channels.
 (defn connect-to-gateway
   "Attempts to connect to the discord Gateway using some supplied authentication source
 
@@ -278,12 +297,30 @@
     gateway))
 
 (defn reconnect-gateway
-  "In the event that we are disconnected from the Discord gateway, we will attempt to reconnect by
-   establishing a new websocket connection with the gateway. After this is complete, we will update
-   our current socket reference and then send a 'resume' message to the Discord gateway that we have
-   resumed our session."
+  "In the event that we are disconnected from the Discord `gateway`, we will attempt to
+  reconnect by establishing a new websocket connection with the gateway. After this is
+  complete, we will update our current socket reference and then send a 'resume' message
+  to the Discord gateway that we have resumed our session."
   [gateway]
-  (let [socket        (:websocket gateway)
-        websocket     (create-websocket gateway)]
+  (let [socket (:websocket gateway)
+        websocket (create-websocket gateway)]
     (reset! socket websocket)
     (send-resume gateway)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Voice connections and voice gateways
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defmethod handle-gateway-message :VOICE_SERVER_UPDATE
+  [discord-message gateway receive-chan]
+  ;; This message is going to contain information about the current voice server, such
+  ;; as the token and voice endpoint
+  )
+
+
+(defmethod handle-gateway-control-event :VOICE-STATE
+  [discord-event gateway receive-chan]
+  ;; This event is going to contain information about who is joining/leaving the voice
+  ;; server. When we are attempting to connect to the voice gateway, it will also
+  ;; include a session ID
+  )
+
