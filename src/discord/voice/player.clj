@@ -49,7 +49,7 @@
   [simple-audio-player track-identifier]
   (proxy [AudioLoadResultHandler] []
     (trackLoaded [track]
-      (if (not (.startTrack (:player simple-audio-player) track true))
+      (if-not (.startTrack (:player simple-audio-player) track true)
         (.offer (:queue simple-audio-player) track)))
 
     (playlistLoaded [playlist]
