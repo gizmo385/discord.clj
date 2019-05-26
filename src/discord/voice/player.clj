@@ -1,13 +1,15 @@
 (ns discord.voice.player
-  (:import [com.sedmelluq.discord.lavaplayer.player DefaultAudioPlayerManager]
-           [com.sedmelluq.discord.lavaplayer.player.event AudioEventAdapter]
-           [com.sedmelluq.discord.lavaplayer.player AudioLoadResultHandler]
-           [com.sedmelluq.discord.lavaplayer.source AudioSourceManagers]
-           [com.sedmelluq.discord.lavaplayer.track.playback MutableAudioFrame]
-           [java.util.concurrent TimeUnit LinkedBlockingQueue])
-  (:require [taoensso.timbre :as timbre]
-            [clojure.reflect :as r]
-            [discord.constants :as const]))
+  (:import
+    [com.sedmelluq.discord.lavaplayer.player AudioLoadResultHandler]
+    [com.sedmelluq.discord.lavaplayer.player DefaultAudioPlayerManager]
+    [com.sedmelluq.discord.lavaplayer.player.event AudioEventAdapter]
+    [com.sedmelluq.discord.lavaplayer.source AudioSourceManagers]
+    [com.sedmelluq.discord.lavaplayer.track.playback MutableAudioFrame]
+    [java.util.concurrent TimeUnit LinkedBlockingQueue])
+  (:require
+    [taoensso.timbre :as timbre]
+    [clojure.reflect :as r]
+    [discord.constants :as const]))
 
 (defprotocol AudioPlayer
   (queue-track [this track-identifier])
