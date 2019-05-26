@@ -41,12 +41,12 @@
        :mute          (:mute user-map)
        :roles         (:roles user-map)
        :joined        (:joined_at user-map)
-       :bot?          (-> user-map :user :bot)
-       :mfa-enabled?  (-> user-map :user :mfa_enabled)
-       :verified?     (-> user-map :user :verified)
-       :username      (-> user-map :user :username)
-       :avatar        (-> user-map :user :avatar)
-       :discriminator (-> user-map :user :discriminator)})))
+       :bot?          (get-in user-map [:user :bot])
+       :mfa-enabled?  (get-in user-map [:user :mfa_enabled])
+       :verified?     (get-in user-map [:user :verified])
+       :username      (get-in user-map [:user :username])
+       :avatar        (get-in user-map [:user :avatar])
+       :discriminator (get-in user-map [:user :discriminator])})))
 
 (defn build-channel [channel-map]
   (types/map->Channel
