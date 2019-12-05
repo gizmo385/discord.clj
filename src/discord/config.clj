@@ -3,7 +3,8 @@
             [clojure.java.io :as io])
   (:import [java.io IOException]))
 
-(defonce global-bot-settings "data/settings/settings.json")
+(defonce global-bot-settings (or (System/getenv "DISCORD_CONFIG_PATH")
+                                 "data/settings/settings.json"))
 
 ;;; Saving, loading, and checking config files
 (defmulti file-io
