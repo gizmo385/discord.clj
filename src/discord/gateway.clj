@@ -236,6 +236,8 @@
 
 (declare reconnect-gateway)
 
+
+
 (defn- create-websocket
   "Creates websocket and connects to the Discord gateway."
   [gateway]
@@ -255,7 +257,8 @@
                         (timbre/warnf "Socket closed for unexpected reason (%d): %s" status reason)
                         (timbre/warnf "Attempting to reconnect to websocket...")
                         (reconnect-gateway gateway))
-                      (timbre/infof "Closing Gateway websocket, not reconnecting (%d)." status))))))
+                      (do (timbre/infof "Closing Gateway websocket, not reconnecting (%d)." status)
+                          (System/exit 1)))))))
 
 ;;; There are a few elements of state that a Discord gateway connection needs to track, such as
 ;;; its sequence number, its heartbeat interval, the websocket connection, and its I/O channels.
