@@ -236,8 +236,6 @@
 
 (declare reconnect-gateway)
 
-
-
 (defn- create-websocket
   "Creates websocket and connects to the Discord gateway."
   [gateway]
