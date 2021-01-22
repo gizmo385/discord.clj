@@ -35,7 +35,7 @@ To do that, we'll define the following command in our code
 (bot/defcommand working
   [client message]
   "Posts the Star Wars Episode 1 'It's working' gif in the channel"
-  (bot/say "https://giphy.com/gifs/9K2nFglCAQClO")
+  (bot/say "https://giphy.com/gifs/9K2nFglCAQClO"))
 ```
 
 The first argument to `bot/defcommand` is going to be the name of the command that you want to
