@@ -6,4 +6,4 @@
 (defn -main
   "Starts a Discord bot."
   [& args]
-  (bot/start))
+  (bot/start-bot!))

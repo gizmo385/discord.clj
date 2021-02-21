@@ -1,0 +1,12 @@
+{:paths ["src"]
+ :deps {org.clojure/clojure {:mvn/version "1.10.0"}
+		org.clojure/core.async {:mvn/version "0.3.443"}
+		clj-http {:mvn/version "3.6.1"}
+		clj-time {:mvn/version "0.14.4"}
+		com.taoensso/timbre {:mvn/version "4.10.0"}
+		org.clojure/data.json {:mvn/version "0.2.6"}
+		overtone/at-at {:mvn/version "1.2.0"}
+		stylefruits/gniazdo {:mvn/version "1.0.0"}}
+ :aliases {:uberjar {:extra-deps  {uberdeps  {:mvn/version "0.1.4"}}
+                     :main-opts  ["-m" "uberdeps.uberjar" "--target" "target/bot.jar"]}
+           :run {:main-opts ["-m" "discord.core"]}}}
