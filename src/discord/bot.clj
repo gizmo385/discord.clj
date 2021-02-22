@@ -22,9 +22,11 @@
   (assoc message :content (-> message :content (s/replace-first prefix "") s/triml)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Helper functions
+;;; Modules and command resolution.
 ;;;
-;;; Functions that are used throught the namespace
+;;; Modules are essentially containers that can hold other modules and commands, forming a tree of
+;;; commands and modules. Command resolution is a depth-first traversal through that tree, resulting
+;;; in a CommandInvocation record.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defrecord CommandInvocation
   [full-command handler args])
@@ -50,27 +52,6 @@
   [command & fn-tail]
   `(hash-map ~command (fn ~(symbol (format "command-invocation-%s" (name command))) ~@fn-tail)))
 
-(comment
-  (use 'clojure.pprint)
-  (require '[clojure.walk :as w])
-  (require '[clojure.zip :as z])
-  (let [module-map {:admin {:region {:move (fn [])}
-                            :player {:ban (fn [])
-                                     :unban (fn [])}}}
-        command "admin region move us-west"]
-    (command->invocation command module-map))
-
-  (let [invocation (->>
-                     (with-module :admin
-                       (with-module :region
-                         (command
-                           :move [client message region]
-                           (println (format "Moving the region to %s" region))
-                           ))
-                       )
-                     (command->invocation "admin region move us-west"))]
-    (execute-invocation invocation nil nil)))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Custom Discord message handlers
 ;;;
@@ -79,27 +60,18 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defonce message-handlers (atom []))
 
-(defn add-handler! [handler]
+(defn add-handler!
+  "Registers a new message handler. The handler, handler-fn, should be a function of 2 arguments
+   where the first argument is the Discord client and the second argument is the message in the
+   Discord text channel."
+  [handler-fn]
   (swap! message-handlers conj handler))
 
 (defn clear-handlers! []
   (reset! message-handlers []))
 
-(defn get-handlers [] @message-handlers)
-
-(defmacro defhandler
-  "This is used to create custom message handlers, for which all messages received by the bot will
-   be passed through. This is used f or the creation of advanced bot functionality such as automatic
-   moderation, alias creation, etc."
-  [handler-name [prefix-param client-param message-param] & body]
-  (let [handler-fn-name (gensym (name handler-name))]
-   `(do
-      (timbre/infof "Register custom message handler: %s" ~(name handler-name))
-      (defn ~handler-fn-name [~prefix-param ~client-param ~message-param] ~@body)
-      (add-handler! ~handler-fn-name))))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Defining the global extension registry
+;;; Defining the global module/command registry
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defonce installed-modules (atom {}))
 
@@ -140,12 +112,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Dispatching messages received by the bot to commands and message handlers
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn- dispatch-to-handlers
+(defn- dispatch-to-message-handlers
   "Dispatches to the currently registered user message handlers."
-  [prefix client message]
-  (let [handlers (get-handlers)]
-    (doseq [handler handlers]
-      (handler prefix client message))))
+  [client message]
+  (doseq [handler @message-handlers]
+    (handler client message)))
 
 (defn- dispatch-to-command-handler
   "Determines the correct handler for a particular command and invokes that handler for the command."
@@ -172,7 +143,7 @@
     ;; For every message, we'll dispatch to the handlers. This allows for more sophisticated
     ;; handling of messages that don't necessarily match the prefix (i.e. matching & deleting
     ;; messages with swear words).
-    (go (dispatch-to-handlers prefix client message))))
+    (go (dispatch-to-message-handlers client message))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Loading bots into the system
@@ -220,7 +191,6 @@
 
 (defn register-builtins! []
   (install-modules!
-    (command :halt [& _] (System/exit 0))
     (command
       :help [client original-message]
       (reply-in-dm client original-message (str (keys @installed-modules))))
