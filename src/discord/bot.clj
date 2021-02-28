@@ -65,7 +65,7 @@
    where the first argument is the Discord client and the second argument is the message in the
    Discord text channel."
   [handler-fn]
-  (swap! message-handlers conj handler))
+  (swap! message-handlers conj handler-fn))
 
 (defn clear-handlers! []
   (reset! message-handlers []))
