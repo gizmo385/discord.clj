@@ -15,3 +15,4 @@ pom.xml.asc
 
 data/settings/settings.json
 data/*
+.cpcache
