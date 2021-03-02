@@ -27,12 +27,18 @@
 (bot/install-modules!
   (bot/command
     :say [client message & _]
-    (bot/reply-in-channel client message (:content message)))
+    (let [space-index (s/index-of (:content message) " ")]
+      (if (some? space-index)
+        (bot/reply-in-channel client message (subs (:content message) space-index))
+        (bot/reply-in-channel
+          client message "https://media2.giphy.com/media/L1W47cPwMyrUs7zEjP/giphy.gif"))))
 
   (bot/command
     :botsay [client message & _]
-    (bot/reply-in-channel client message (:content message))
-    (bot/delete-original-message client message))
+    (let [space-index (s/index-of (:content message) " ")]
+      (bot/delete-original-message client message)
+      (when (some? space-index)
+        (bot/reply-in-channel client message (subs (:content message) space-index)))))
 
   (bot/command
     :working [client message]
@@ -80,6 +86,4 @@
         (doseq [n (range count-limit)]
           (bot/reply-in-channel client message (format "Number: %d" n))))
       (catch NumberFormatException _
-        (bot/reply-in-channel client message "Error: Please supply a number!")))
-      (doseq [n (range 10)]
-        (bot/reply-in-channel client message (format "Number: %d" n)))))
+        (bot/reply-in-channel client message "Error: Please supply a number!")))))
