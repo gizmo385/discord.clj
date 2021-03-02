@@ -95,80 +95,72 @@
       (get-in settings [guild-id channel-id] []))))
 
 ;;; Create a extension that will be used to add and remove blocked words for servers
-(bot/defextension block [client message]
-  "Allows you to block words that you don't want appearing in certain contexts."
-  ;;; Commands to block words
-  (:global
-    "Adds words to the global block list for the bot."
-    {:requires [perm/ADMINISTRATOR]}
-    (if-let [[commmand & words-to-block] (utils/words (:content message))]
-      (do
-        (block-words words-to-block)
-        (bot/say "Those words are now blocked globally"))
-      (bot/say "Please supply words to block.")))
-  (:guild
-    "Adds words to the guild block list for the bot."
-    {:requires [perm/MANAGE-MESSAGES]}
-    (let [guild (get-in message [:channel :guild-id])]
-      (if-let [[commmand & words-to-block] (utils/words (:content message))]
-        (do
-          (block-words words-to-block guild)
-          (bot/say "Those words are now blocked for this particular guild."))
-        (bot/say "Please supply words to block."))))
-  (:channel
-    "Adds words to the guild/channel block list for the bot."
-    {:requires [perm/MANAGE-MESSAGES]}
-    (let [channel (get-in message [:channel :id])
-          guild   (get-in message [:channel :guild-id])]
-      (if-let [[commmand & words-to-block] (utils/words (:content message))]
-        (do
-          (block-words words-to-block guild channel)
-          (bot/say "Those words are now blocked for this particular guild channel."))
-        (bot/say "Please supply words to block."))))
-
-  ;;; Command to list the currently blocked words
-  (:list
-    "Lists the words blocked in the current channel."
-    (let [channel       (get-in message [:channel :id])
+(bot/install-modules!
+  (bot/with-module :filter
+    (bot/command
+      :list [client message]
+      (let [channel       (get-in message [:channel :id])
           guild         (get-in message [:channel :guild-id])
           blocked-words (get-blocked-words guild channel)]
-      (bot/pm (format "The following words are blocked in that channel: %s"
-                      (s/join ", " blocked-words))))))
+        (->> blocked-words
+             (s/join ", ")
+             (format "The following words are blocked in that channel: %s")
+             (bot/reply-in-dm client message))))
 
-(bot/defextension unblock [client message]
-  "Unblock words that are currently being blocked."
-  ;;; Commands to block words
-  (:global
-    "Removes words from the global block list"
-    {:requires [perm/ADMINISTRATOR]}
-    (if-let [[commmand & words-to-unblock] (utils/words (:content message))]
-      (do
-        (unblock-words words-to-unblock)
-        (bot/say "Those words have been removed from the global block list."))
-      (bot/say "Please supply words to unblock.")))
-  (:guild
-    "Removes words from the guild block list"
-    {:requires [perm/MANAGE-MESSAGES]}
-    (let [guild (get-in message [:channel :guild-id])]
-      (if-let [[commmand & words-to-block] (utils/words (:content message))]
-        (do
-          (unblock-words words-to-block guild)
-          (bot/say "Those words have been removed from the guild block list."))
-        (bot/say "Please supply words to unblock."))))
-  (:channel
-    "Removes words from the guild/channel block list"
-    {:requires [perm/MANAGE-MESSAGES]}
-    (let [channel (get-in message [:channel :id])
-          guild   (get-in message [:channel :guild-id])]
-      (if-let [[commmand & words-to-unblock] (utils/words (:content message))]
-        (do
-          (unblock-words words-to-unblock guild channel)
-          (bot/say "Those words have been removed from the channel block list."))
-        (bot/say "Please supply words to unblock.")))))
+    ;; Blocking and unblocking on a bot-global basis
+    (bot/with-module :global
+      (bot/command
+        :block [client message & words-to-block]
+        (if (perm/has-permission? client message perm/ADMINISTRATOR)
+          (do (block-words words-to-block)
+              (bot/reply-in-channel client message "Those words are now globally blocked."))
+          (bot/reply-in-channel "You don't have permission to block words.")))
+      (bot/command
+        :unblock [client message & words-to-unblock]
+        (when (perm/has-permission? client message perm/ADMINISTRATOR)
+          (unblock-words words-to-unblock))))
+
+    ;; Blocking and unblocking on a per-guild basis
+    (bot/with-module :guild
+      (bot/command
+        :block [client message & words-to-block]
+        (if (perm/has-permission? client message perm/MANAGE-GUILD)
+          (let [guild-id (get-in message [:channel :guild-id])]
+            (block-words words-to-block guild-id)
+            (bot/reply-in-channel client message "Those words are now blocked in this guild."))
+          (bot/reply-in-channel client message "You don't have permission to block words.")))
+      (bot/command
+        :unblock [client message & words-to-unblock]
+        (if (perm/has-permission? client message perm/MANAGE-GUILD)
+          (let [guild-id (get-in message [:channel :guild-id])]
+            (unblock-words words-to-unblock guild-id)
+            (bot/reply-in-channel client message "Those words are now unblocked in this guild."))
+          (bot/reply-in-channel client message "You don't have permission to unblock words."))))
+
+    ;; Blocking and unblocking on a per-channel basis
+    (bot/with-module :channel
+      (bot/command
+        :block [client message & words-to-block]
+        (if (perm/has-permission? client message perm/MANAGE-CHANNELS)
+          (let [channel-id (get-in message [:channel :id])
+                guild-id (get-in message [:channel :guild-id])]
+            (block-words words-to-block guild-id channel-id)
+            (bot/reply-in-channel
+              client message "Those words are now blocked in this guild channel"))
+          (bot/reply-in-channel client message "You don't have permission to block words.")))
+      (bot/command
+        :unblock [client message & words-to-unblock]
+        (if (perm/has-permission? client message perm/MANAGE-CHANNELS)
+          (let [channel-id (get-in message [:channel :id])
+                guild-id (get-in message [:channel :guild-id])]
+            (unblock-words words-to-unblock guild-id channel-id)
+            (bot/reply-in-channel
+              client message "Those words are now unblocked in this guild channel"))
+          (bot/reply-in-channel client message "You don't have permission to unblock words!"))))))
 
 ;;; Build a handler that will delete the blocked words when they are used and warn the user who
 ;;; submitted the naughty word :)
-(defn- check-message [message]
+(defn- message-needs-deletion? [message]
   (let [message-text (s/lower-case (:content message))
         channel (get-in message [:channel :id])
         guild   (get-in message [:channel :guild-id])
@@ -177,11 +169,9 @@
           (for [blocked-word blocked]
             (s/includes? message-text (name blocked-word))))))
 
-(bot/defhandler block-handler [prefix client message]
-  (let [message-channel (:channel message)
-        send-channel (:send-channel client)
-        needs-deletion? (check-message message)]
-    (if needs-deletion?
-      (do
-        (bot/delete message)
-        (bot/say "Naughty, naughty! No swearing allowed! :see_no_evil:")))))
+(defn block-message-handler [prefix client message]
+  (when (message-needs-deletion? message)
+    (bot/delete-original-message client message)
+    (bot/reply-in-channel client message "Naughty, naughty! No swearing allowed! :see_no_evil:")))
+
+(bot/add-handler! block-message-handler)
