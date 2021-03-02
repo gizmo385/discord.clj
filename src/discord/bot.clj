@@ -32,14 +32,13 @@
   [full-command handler args])
 
 (defn command->invocation
-  [command modules]
+  [cmd modules]
   (letfn [(split-command->invocation [[next-command-element & rest-of-command] modules]
             (let [layer (get modules (keyword next-command-element))]
               (cond
-                (nil? layer) (throw (ex-info "Invalid command!" {:command command}))
-                (fn? layer) (->CommandInvocation command layer rest-of-command)
+                (fn? layer) (->CommandInvocation cmd layer rest-of-command)
                 (map? layer) (split-command->invocation rest-of-command layer))))]
-    (split-command->invocation (s/split command #"\s+") modules)))
+    (split-command->invocation (s/split cmd #"\s+") modules)))
 
 (defn execute-invocation
   [invocation client message]
@@ -61,9 +60,9 @@
 (defonce message-handlers (atom []))
 
 (defn add-handler!
-  "Registers a new message handler. The handler, handler-fn, should be a function of 2 arguments
-   where the first argument is the Discord client and the second argument is the message in the
-   Discord text channel."
+  "Registers a new message handler. The handler, handler-fn, should be a function of 3 arguments
+   where the first argument is the bot's prefix, the second is the Discord client and the third
+   is the message in the Discord text channel."
   [handler-fn]
   (swap! message-handlers conj handler-fn))
 
@@ -114,22 +113,26 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn- dispatch-to-message-handlers
   "Dispatches to the currently registered user message handlers."
-  [client message]
+  [prefix client message]
   (doseq [handler @message-handlers]
-    (handler client message)))
+    (handler prefix client message)))
 
 (defn- dispatch-to-command-handler
   "Determines the correct handler for a particular command and invokes that handler for the command."
   [client message prefix available-modules]
-  (println message)
-  (let [trimmed-command-message (trim-command-prefix message prefix)
-        invocation (command->invocation (:content trimmed-command-message) available-modules)]
-    (try (-> trimmed-command-message
-             (get :content)
-             (command->invocation available-modules)
-             (execute-invocation client message))
-         (catch Exception e
-           (timbre/errorf "Could not execute command: %s" (:content message))))))
+  (try
+    (let [trimmed-command-message (trim-command-prefix message prefix)
+          invocation (command->invocation (:content trimmed-command-message) available-modules)]
+      (some-> trimmed-command-message
+              (get :content)
+              (command->invocation available-modules)
+              (execute-invocation client message)))
+    (catch clojure.lang.ArityException e
+      (timbre/error e (format "Wrong number of arguments for command: %s" (:content message)))
+      (reply-in-channel client message "Wrong number of arguments supplied for command."))
+    (catch Exception e
+      (timbre/error e (format "Error executing command: %s" (:content message)))
+      (reply-in-channel client message "Error while executing command :("))))
 
 (defn- build-message-handler-fn
   "Builds a handler around a set of modules and commands."
@@ -143,7 +146,7 @@
     ;; For every message, we'll dispatch to the handlers. This allows for more sophisticated
     ;; handling of messages that don't necessarily match the prefix (i.e. matching & deleting
     ;; messages with swear words).
-    (go (dispatch-to-message-handlers client message))))
+    (go (dispatch-to-message-handlers prefix client message))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Loading bots into the system
