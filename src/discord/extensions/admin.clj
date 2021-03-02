@@ -8,13 +8,14 @@
             [discord.http :as http]
             [discord.types :as types]))
 
-
 (defn doto-mentioned-users
-  [client message action]
-  (doseq [user (:user-mentions message)]
-    (let [user-id (:id user)
-          guild-id (get-in message [:channel :guild-id])]
-      (action client guild-id user-id))))
+  [client message action required-permission]
+  (if (perm/has-permission? client message required-permission)
+    (doseq [user (:user-mentions message)]
+      (let [user-id (:id user)
+            guild-id (get-in message [:channel :guild-id])]
+        (action client guild-id user-id)))
+    (bot/reply-in-channel "You don't have the permission to execute that command.")))
 
 (bot/install-modules!
   (bot/with-module :admin
@@ -37,18 +38,24 @@
           (bot/reply-in-channel client message reply)))
       (bot/command
         :move [client message new-region]
-        (let [guild-id (get-in message [:channel :guild-id])]
-          (if-let [region-keyword (get types/server-region new-region)]
-            (do
-              (bot/reply-in-channel
-                client message (format "Moving voice server to \"%s\"" new-region))
-              (http/modify-server client guild-id :region new-region))
-            (bot/reply-in-channel client message (format "The region \"%s\" does not exist."))))))
+        (if (perm/has-permission? client message perm/MANAGE-GUILD)
+          (let [guild-id (get-in message [:channel :guild-id])]
+            (if-let [region-keyword (get types/server-region new-region)]
+              (do
+                (bot/reply-in-channel
+                  client message (format "Moving voice server to \"%s\"" new-region))
+                (http/modify-server client guild-id :region new-region))
+              (bot/reply-in-channel client message (format "The region \"%s\" does not exist."))))
+          (bot/reply-in-channel
+            client message "You don't have permission to move the voice region!"))))
 
     (bot/command
       :shutdown [client message]
-      (.close client)
-      (System/exit 0))
+      (if (perm/has-permission? client message perm/ADMINISTRATOR)
+        (do (.close client)
+            (System/exit 0))
+        (bot/reply-in-channel client message "https://media.giphy.com/media/RX3vhj311HKLe/giphy.gif")))
+
     (bot/command
       :broadcast [client message message-to-broadcast]
       (let [bcast-message (->> message :content utils/words rest (s/join " "))
