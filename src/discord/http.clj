@@ -35,7 +35,7 @@
      :permissions (:permissions server-map)
      :region      (get types/server-region (:region server-map))}))
 
-(defrecord User [id username mention bot? mfa-enabled? verified? roles deaf mute avatar joined
+(defrecord User [id username nick mention bot? mfa-enabled? verified? roles deaf mute avatar joined
                  discriminator]
   Snowflake
   (->snowflake [user] (-> user :id Long/parseLong)))
@@ -46,6 +46,7 @@
     (map->User
     {:id            user-id
      :mention       mention
+     :nick          (:nick user-map)
      :deaf          (:deaf user-map)
      :mute          (:mute user-map)
      :roles         (:roles user-map)
