@@ -89,6 +89,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Handling server EVENTS
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(declare send-identify)
+
 (defmulti handle-gateway-control-event
   "Handling server control events. Control events are control messages sent by the Gateway to a
    connected client to inform the client about disconnects, reconnects, rate limits, etc."
@@ -105,6 +108,16 @@
 
 ;;; Since there is nothing to do regarding a heartback ACK message, we'll just ignore it.
 (defmethod handle-gateway-control-event :heartbeat-ack [& _])
+
+(defmethod handle-gateway-control-event :invalidate-session
+  [discord-event gateway receive-chan]
+  (timbre/infof "(invalidate-session) Event of Type: %s" (message-code->name (:op discord-event)))
+  @(future (Thread/sleep 3000) (send-identify gateway)))
+
+(defmethod handle-gateway-control-event :reconnect
+  [discord-event gateway receive-chan]
+  (timbre/infof "(reconnect) Event of Type: %s" (message-code->name (:op discord-event)))
+  (ws/close @(:websocket gateway) 999 "reconnect message received"))
 
 (defmethod handle-gateway-control-event :default
   [discord-event gateway receive-chan]
@@ -204,7 +217,7 @@
     (send-message gateway heartbeat)))
 
 (defn send-resume [gateway]
-  (let [session-id  (:session-id gateway)
+  (let [session-id  @(:session-id gateway)
         seq-num     @(:seq-num gateway)]
     (->> {:token           (types/token gateway)
           :session_id      session-id
@@ -250,13 +263,18 @@
       :on-close   (fn [status reason]
                     ;; The codes above 1001 denote erroreous closure states
                     ;; https://developer.mozilla.org/en-US/docs/Web/API/CloseEvent
-                    (if (> 1001 status)
-                      (do
-                        (timbre/warnf "Socket closed for unexpected reason (%d): %s" status reason)
-                        (timbre/warnf "Attempting to reconnect to websocket...")
-                        (reconnect-gateway gateway))
-                      (do (timbre/infof "Closing Gateway websocket, not reconnecting (%d)." status)
-                          (System/exit 1)))))))
+                    (println status reason)
+                    (cond
+                      (= 1002 status) (do
+                                        (timbre/warnf "Socket closed for reason (%d): %s" status reason)
+                                        (timbre/warnf "Attempting to reconnect to websocket...")
+                                        (reconnect-gateway gateway))
+                      (> 1001 status) (do
+                                        (timbre/warnf "Socket closed for unexpected reason (%d): %s" status reason)
+                                        (timbre/warnf "Attempting to reconnect to websocket...")
+                                        (reconnect-gateway gateway))
+                      :else (do (timbre/infof "Closing Gateway websocket, not reconnecting (%d)." status)
+                                (System/exit 1)))))))
 
 ;;; There are a few elements of state that a Discord gateway connection needs to track, such as
 ;;; its sequence number, its heartbeat interval, the websocket connection, and its I/O channels.
