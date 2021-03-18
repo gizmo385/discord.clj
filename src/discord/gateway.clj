@@ -111,13 +111,14 @@
 
 (defmethod handle-gateway-control-event :invalidate-session
   [discord-event gateway receive-chan]
-  (timbre/infof "(invalidate-session) Event of Type: %s" (message-code->name (:op discord-event)))
+  (timbre/infof "Event of Type: %s" (message-code->name (:op discord-event)))
+  ;; Wait a few seconds then attempt to identify, per Discord docs
   @(future (Thread/sleep 3000) (send-identify gateway)))
 
 (defmethod handle-gateway-control-event :reconnect
   [discord-event gateway receive-chan]
-  (timbre/infof "(reconnect) Event of Type: %s" (message-code->name (:op discord-event)))
-  (ws/close @(:websocket gateway) 999 "reconnect message received"))
+  (timbre/infof "Event of Type: %s" (message-code->name (:op discord-event)))
+  (ws/close @(:websocket gateway) 1000 "Reconnect request"))
 
 (defmethod handle-gateway-control-event :default
   [discord-event gateway receive-chan]
@@ -265,7 +266,7 @@
                     ;; https://developer.mozilla.org/en-US/docs/Web/API/CloseEvent
                     (println status reason)
                     (cond
-                      (= 1002 status) (do
+                      (= 1006 status) (do
                                         (timbre/warnf "Socket closed for reason (%d): %s" status reason)
                                         (timbre/warnf "Attempting to reconnect to websocket...")
                                         (reconnect-gateway gateway))
