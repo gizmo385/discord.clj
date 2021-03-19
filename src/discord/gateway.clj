@@ -264,7 +264,6 @@
       :on-close   (fn [status reason]
                     ;; The codes above 1001 denote erroreous closure states
                     ;; https://developer.mozilla.org/en-US/docs/Web/API/CloseEvent
-                    (println status reason)
                     (cond
                       (= 1006 status) (do
                                         (timbre/warnf "Socket closed for reason (%d): %s" status reason)
