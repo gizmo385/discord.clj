@@ -133,7 +133,7 @@
 
 (defmethod handle-gateway-message :READY
   [discord-message gateway receive-chan]
-  (let [session-id      (get-in discord-message [:d :session-id])
+  (let [session-id      (get-in discord-message [:d :session_id])
         session-id-atom (:session-id gateway)]
     (reset! session-id-atom session-id)))
 
@@ -204,7 +204,7 @@
     (send-message gateway heartbeat)))
 
 (defn send-resume [gateway]
-  (let [session-id  (:session-id gateway)
+  (let [session-id  @(:session-id gateway)
         seq-num     @(:seq-num gateway)]
     (->> {:token           (types/token gateway)
           :session_id      session-id
