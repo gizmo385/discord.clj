@@ -22,7 +22,7 @@
 ;;; Defining Records relevant to the Discord APIs, as well as more useful constructors for
 ;;; those Records.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defrecord Server [id name permissions owner? icon region]
+(defrecord Server [id name permissions owner-id icon region]
   Snowflake
   (->snowflake [server] (-> server :id Long/parseLong)))
 
@@ -30,7 +30,7 @@
   (map->Server
     {:id          (:id server-map)
      :name        (:name server-map)
-     :owner?      (:owner server-map)
+     :owner-id    (:owner_id server-map)
      :icon        (:icon server-map)
      :permissions (:permissions server-map)
      :region      (get types/server-region (:region server-map))}))
@@ -44,18 +44,18 @@
   (let [user-id (-> user-map :user :id)
         mention (str \@ user-id)]
     (map->User
-    {:id            user-id
-     :mention       mention
-     :deaf          (:deaf user-map)
-     :mute          (:mute user-map)
-     :roles         (:roles user-map)
-     :joined        (:joined_at user-map)
-     :bot?          (-> user-map :user :bot)
-     :mfa-enabled?  (-> user-map :user :mfa_enabled)
-     :verified?     (-> user-map :user :verified)
-     :username      (-> user-map :user :username)
-     :avatar        (-> user-map :user :avatar)
-     :discriminator (-> user-map :user :discriminator)})))
+      {:id            user-id
+       :mention       mention
+       :deaf          (:deaf user-map)
+       :mute          (:mute user-map)
+       :roles         (:roles user-map)
+       :joined        (:joined_at user-map)
+       :bot?          (-> user-map :user :bot)
+       :mfa-enabled?  (-> user-map :user :mfa_enabled)
+       :verified?     (-> user-map :user :verified)
+       :username      (-> user-map :user :username)
+       :avatar        (-> user-map :user :avatar)
+       :discriminator (-> user-map :user :discriminator)})))
 
 (defrecord Channel [id guild-id name type position topic]
   Snowflake
@@ -361,7 +361,21 @@
 ;;; Current user management
 (defn get-current-user [auth]
   ;; The response from /users/@me is a bit strange, so special parsing is needed
-  (build-user (into {} (discord-request :get-current-user auth))))
+  (let [user-map (into {} (discord-request :get-current-user auth))]
+    (timbre/info user-map)
+    (map->User
+      {:id            (:id user-map)
+       :mention       (:mention user-map)
+       :deaf          (:deaf user-map)
+       :mute          (:mute user-map)
+       :roles         (:roles user-map)
+       :joined        (:joined_at user-map)
+       :bot?          (:bot user-map)
+       :mfa-enabled?  (:mfa_enabled user-map)
+       :verified?     (:verified user-map)
+       :username      (:username user-map)
+       :avatar        (:avatar user-map)
+       :discriminator (:discriminator user-map)})))
 
 (defn edit-profile [auth & {:keys [username avatar] :as params}]
   (discord-request :edit-profile auth :json params))
