@@ -103,3 +103,8 @@
   "Determines if a user has every required permission."
   [auth message permissions]
   (every? true? (map (partial has-permission? auth message) permissions)))
+
+(defn is-server-owner?
+  [auth message]
+  (let [server (http/get-guild auth (get-in message [:channel :guild-id]))]
+    (= (:owner-id server) (get-in message [:author :id]))))
