@@ -168,7 +168,9 @@
   (let [clojure-files (get-clojure-files folder)]
     (doseq [filename clojure-files]
       (timbre/infof "Loading extensions from: %s" filename)
-      (load-file filename))))
+      (try (load-file filename)
+           (catch Exception e
+             (timbre/error e "Error while loading: %s" filename))))))
 
 (defn load-module-folders! []
   (doseq [folder (config/get-extension-folders)]
