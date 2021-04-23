@@ -8,8 +8,11 @@
 		overtone/at-at {:mvn/version "1.2.0"}
 		stylefruits/gniazdo {:mvn/version "1.0.0"}
         shutdown/shutdown  {:mvn/version "0.1.0-SNAPSHOT"}}
- :aliases {:uberjar {:extra-deps  {uberdeps  {:mvn/version "0.1.4"}}
-                     :main-opts  ["-m" "uberdeps.uberjar" "--target" "target/bot.jar"]}
+ :aliases {:uberjar {:replace-deps  {com.github.seancorfield/depstar  {:mvn/version "2.0.193"}}
+                     :exec-fn hf.depstar/uberjar
+                     :exec-args  {:jar "target/bot.jar"
+                                  :aot true
+                                  :main-class discord.core}}
            :run {:main-opts ["-m" "discord.core"]}
            :nrepl {:extra-deps  {nrepl/nrepl  {:mvn/version "RELEASE"}
                                  cider/cider-nrepl {:mvn/version "0.22.4"}
