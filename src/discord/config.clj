@@ -26,14 +26,14 @@
     (catch IOException ioe
       (or default []))))
 
-(defn- file-exists?
+(defn file-exists?
   "Returns whether or not the specified filename exists on disk."
   [filename]
   (-> filename
       (io/as-file)
       (.exists)))
 
-(defn- create-file
+(defn create-file
   "Creates the file specified by the filename. Also creates all necessary parent directories."
   [filename]
   (let [f (io/as-file filename)]
