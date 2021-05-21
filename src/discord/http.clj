@@ -107,11 +107,11 @@
    :clear-reactions     (Route. "/channels/{channel}/messages/{message}/reactions" :delete)
 
    ;; Server member management
-   :kick                (Route. "/guilds/{guild}/members/{member}" :delete)
+   :kick                (Route. "/guilds/{guild}/members/{user}" :delete)
    :ban                 (Route. "/guilds/{guild}/bans/%s" :put)
    :unban               (Route. "/guilds/{guild}/bans/%s" :delete)
-   :get-member          (Route. "/guilds/{guild}/members/{member}" :get)
-   :edit-member         (Route. "/guilds/{guild}/members/{member}" :patch)
+   :get-member          (Route. "/guilds/{guild}/members/{user}" :get)
+   :edit-member         (Route. "/guilds/{guild}/members/{user}" :patch)
 
    ;; Current user management
    :get-current-user    (Route. "/users/@me" :get)
@@ -156,8 +156,8 @@
    :edit-role           (Route. "/guilds/{guild}/roles/{role}" :patch)
    :delete-role         (Route. "/guilds/{guild}/roles/{role}" :delete)
    :create-role         (Route. "/guilds/{guild}/roles" :post)
-   :add-user-role       (Route. "/guilds/{guild}/members/{member}/roles/{role}" :put)
-   :remove-user-role    (Route. "/guilds/{guild}/members/{member}/roles/{role}" :delete)
+   :add-user-role       (Route. "/guilds/{guild}/members/{user}/roles/{role}" :put)
+   :remove-user-role    (Route. "/guilds/{guild}/members/{user}/roles/{role}" :delete)
    :edit-permissions    (Route. "/channels/{channel}/permissions/{overwrite}" :put)
    :delete-permissions  (Route. "/channels/{channel}/permissions/{overwrite}" :delete)
 
