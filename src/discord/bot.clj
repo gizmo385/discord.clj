@@ -89,10 +89,13 @@
   [channel reply components embed]
   (let [content (cond-> {:content reply}
                   (some? components) (assoc :components components)
-                  (some? embed) (assoc :embed embed))]
+                  (some? embed) (assoc :embeds embed))]
     {:channel channel :content content}))
 
 (defn reply-in-channel
+  "Sends a message in response to a message from a user in the channel the message originated in.
+
+   Optionally, message components or embeds can be included."
   ([client original-message reply]
    (reply-in-channel client original-message reply nil nil))
   ([client original-message reply components]
@@ -103,11 +106,18 @@
      (go (>! send-channel (build-reply message-channel reply components embed))))))
 
 (defn reply-in-dm
-  [client original-message reply & {:keys [embed components]}]
-  (let [user-id (get-in original-message [:author :id])
-        dm-channel (http/create-dm-channel client user-id)
-        send-channel (:send-channel client)]
-    (go (>! send-channel (build-reply dm-channel reply components)))))
+  "Sends a reply back to the message sender in a DM channel.
+
+   Optionally, message components and embeds can be included."
+  ([client original-message reply]
+   (reply-in-dm client original-message reply nil nil))
+  ([client original-message reply components]
+   (reply-in-dm client original-message reply components nil))
+  ([client original-message reply components embed]
+   (let [user-id (get-in original-message [:author :id])
+         dm-channel (http/create-dm-channel client user-id)
+         send-channel (:send-channel client)]
+     (go (>! send-channel (build-reply dm-channel reply components))))))
 
 (defn delete-original-message
   [client original-message]

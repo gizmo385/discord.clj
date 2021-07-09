@@ -16,7 +16,7 @@
 
 ;;; Global constants for interacting with the API
 (defonce user-agent "discord.clj (https://github.com/gizmo385/discord.clj)")
-(defonce discord-url "https://discordapp.com/api/v6")
+(defonce discord-url "https://discordapp.com/api/v9")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Defining Records relevant to the Discord APIs, as well as more useful constructors for
@@ -89,82 +89,87 @@
 
 (defonce endpoint-mapping
   {;; Message operations
-   :get-message         (Route. "/channels/{channel}/messages/{message}" :get)
-   :send-message        (Route. "/channels/{channel}/messages" :post)
-   :edit-message        (Route. "/channels/{channel}/messages/{message}" :patch)
-   :delete-message      (Route. "/channels/{channel}/messages/{message}" :delete)
-   :delete-messages     (Route. "/channels/{channel}/messages/bulk-delete" :post)
-   :pin-message         (Route. "/channels/{channel}/pins/{message}" :put)
-   :unpin-message       (Route. "/channels/{channel}/pins/{message}" :delete)
-   :pins-from           (Route. "/channels/{channel}/pins/{message}" :get)
-   :logs-from           (Route. "/channels/{channel}/messages" :get)
+   :get-message                   (Route. "/channels/{channel}/messages/{message}" :get)
+   :send-message                  (Route. "/channels/{channel}/messages" :post)
+   :edit-message                  (Route. "/channels/{channel}/messages/{message}" :patch)
+   :delete-message                (Route. "/channels/{channel}/messages/{message}" :delete)
+   :delete-messages               (Route. "/channels/{channel}/messages/bulk-delete" :post)
+   :pin-message                   (Route. "/channels/{channel}/pins/{message}" :put)
+   :unpin-message                 (Route. "/channels/{channel}/pins/{message}" :delete)
+   :pins-from                     (Route. "/channels/{channel}/pins/{message}" :get)
+   :logs-from                     (Route. "/channels/{channel}/messages" :get)
 
    ;; Reactions
-   :add-reaction        (Route. "/channels/{channel}/messages/{message}/reactions/{emoji}/@me" :put)
-   :remove-reaction     (Route. "/channels/{channel}/messages/{message}/reactions/{emoji}/{user}" :delete)
-   :reaction-users      (Route. "/channels/{channel}/messages/{message}/reactions/{emoji}" :get)
-   :clear-reactions     (Route. "/channels/{channel}/messages/{message}/reactions" :delete)
+   :add-reaction                  (Route. "/channels/{channel}/messages/{message}/reactions/{emoji}/@me" :put)
+   :remove-reaction               (Route. "/channels/{channel}/messages/{message}/reactions/{emoji}/{user}" :delete)
+   :reaction-users                (Route. "/channels/{channel}/messages/{message}/reactions/{emoji}" :get)
+   :clear-reactions               (Route. "/channels/{channel}/messages/{message}/reactions" :delete)
 
    ;; Server member management
-   :kick                (Route. "/guilds/{guild}/members/{member}" :delete)
-   :ban                 (Route. "/guilds/{guild}/bans/%s" :put)
-   :unban               (Route. "/guilds/{guild}/bans/%s" :delete)
-   :get-member          (Route. "/guilds/{guild}/members/{member}" :get)
-   :edit-member         (Route. "/guilds/{guild}/members/{member}" :patch)
+   :kick                          (Route. "/guilds/{guild}/members/{member}" :delete)
+   :ban                           (Route. "/guilds/{guild}/bans/{user}" :put)
+   :unban                         (Route. "/guilds/{guild}/bans/{user}" :delete)
+   :get-member                    (Route. "/guilds/{guild}/members/{member}" :get)
+   :edit-member                   (Route. "/guilds/{guild}/members/{member}" :patch)
 
    ;; Current user management
-   :get-current-user    (Route. "/users/@me" :get)
-   :edit-profile        (Route. "/users/@me" :patch)
-   :update-nickname     (Route. "/guilds/{guild}/members/@me/nick" :patch)
+   :get-current-user              (Route. "/users/@me" :get)
+   :edit-profile                  (Route. "/users/@me" :patch)
+   :update-nickname               (Route. "/guilds/{guild}/members/@me/nick" :patch)
 
    ;; Server/Guild Management
-   :get-guild           (Route. "/guilds/{guild}" :get)
-   :get-servers         (Route. "/users/@me/guilds" :get)
-   :leave-server        (Route. "/users/@me/guilds/{guild}" :delete)
-   :delete-server       (Route. "/guilds/{guild}" :delete)
-   :create-server       (Route. "/guilds" :post)
-   :modify-server       (Route. "/guilds/{guild}" :patch)
-   :get-guild-member    (Route. "/guilds/{guild}/members/{user}" :get)
-   :list-members        (Route. "/guilds/{guild}/members" :get)
-   :prune-members       (Route. "/guilds/{guild}/prune" :post)
-   :prunable-members    (Route. "/guilds/{guild}/prune" :get)
+   :get-guild                     (Route. "/guilds/{guild}" :get)
+   :get-servers                   (Route. "/users/@me/guilds" :get)
+   :leave-server                  (Route. "/users/@me/guilds/{guild}" :delete)
+   :delete-server                 (Route. "/guilds/{guild}" :delete)
+   :create-server                 (Route. "/guilds" :post)
+   :modify-server                 (Route. "/guilds/{guild}" :patch)
+   :get-guild-member              (Route. "/guilds/{guild}/members/{user}" :get)
+   :list-members                  (Route. "/guilds/{guild}/members" :get)
+   :prune-members                 (Route. "/guilds/{guild}/prune" :post)
+   :prunable-members              (Route. "/guilds/{guild}/prune" :get)
 
    ;; Channel management
-   :get-channel         (Route. "/channels/{channel}" :get)
-   :get-guild-channels  (Route. "/guilds/{guild}/channels" :get)
-   :create-channel      (Route. "/guilds/{guild}/channels" :post)
-   :create-dm-channel   (Route. "/users/@me/channels" :post)
-   :edit-channel        (Route. "/channels/{channel}" :patch)
-   :delete-channel      (Route. "/channels/{channel}" :delete)
+   :get-channel                   (Route. "/channels/{channel}" :get)
+   :get-guild-channels            (Route. "/guilds/{guild}/channels" :get)
+   :create-channel                (Route. "/guilds/{guild}/channels" :post)
+   :create-dm-channel             (Route. "/users/@me/channels" :post)
+   :edit-channel                  (Route. "/channels/{channel}" :patch)
+   :delete-channel                (Route. "/channels/{channel}" :delete)
 
    ;; Emojis
-   :create-emoji        (Route. "/guilds/{guild}/emojis" :post)
-   :delete-emoji        (Route. "/guilds/{guild}/emojis/{emoji}" :delete)
-   :edit-emoji          (Route. "/guilds/{guild}/emojis/{emoji}" :patch)
+   :create-emoji                  (Route. "/guilds/{guild}/emojis" :post)
+   :delete-emoji                  (Route. "/guilds/{guild}/emojis/{emoji}" :delete)
+   :edit-emoji                    (Route. "/guilds/{guild}/emojis/{emoji}" :patch)
 
    ;; Invites
-   :create-invite       (Route. "/channels/{channel}/invites" :post)
-   :get-invite          (Route. "/invite/{invite}" :get)
-   :guild-invites       (Route. "/guilds/{guild}/invites" :get)
-   :channel-invites     (Route. "/channels/{channel}/invites" :get)
-   :accept-invite       (Route. "/invite/{invite}" :post)
-   :delete-invite       (Route. "/invite/{invite}" :delete)
+   :create-invite                 (Route. "/channels/{channel}/invites" :post)
+   :get-invite                    (Route. "/invite/{invite}" :get)
+   :guild-invites                 (Route. "/guilds/{guild}/invites" :get)
+   :channel-invites               (Route. "/channels/{channel}/invites" :get)
+   :accept-invite                 (Route. "/invite/{invite}" :post)
+   :delete-invite                 (Route. "/invite/{invite}" :delete)
 
    ;; Roles
-   :get-roles           (Route. "/guilds/{guild}/roles" :get)
-   :edit-role           (Route. "/guilds/{guild}/roles/{role}" :patch)
-   :delete-role         (Route. "/guilds/{guild}/roles/{role}" :delete)
-   :create-role         (Route. "/guilds/{guild}/roles" :post)
-   :add-user-role       (Route. "/guilds/{guild}/members/{member}/roles/{role}" :put)
-   :remove-user-role    (Route. "/guilds/{guild}/members/{member}/roles/{role}" :delete)
-   :edit-permissions    (Route. "/channels/{channel}/permissions/{overwrite}" :put)
-   :delete-permissions  (Route. "/channels/{channel}/permissions/{overwrite}" :delete)
+   :get-roles                     (Route. "/guilds/{guild}/roles" :get)
+   :edit-role                     (Route. "/guilds/{guild}/roles/{role}" :patch)
+   :delete-role                   (Route. "/guilds/{guild}/roles/{role}" :delete)
+   :create-role                   (Route. "/guilds/{guild}/roles" :post)
+   :add-user-role                 (Route. "/guilds/{guild}/members/{member}/roles/{role}" :put)
+   :remove-user-role              (Route. "/guilds/{guild}/members/{member}/roles/{role}" :delete)
+   :edit-permissions              (Route. "/channels/{channel}/permissions/{overwrite}" :put)
+   :delete-permissions            (Route. "/channels/{channel}/permissions/{overwrite}" :delete)
+
+   ;; Interactions
+   :respond-to-interaction        (Route. "/interactions/{id}/{token}/callback" :post)
+   ; TODO: Implement this :)
+   :update-interaction-response   (Route. "/interactions/{id}/{token}/messages/@original" :patch)
 
    ;; Miscellaneous
-   :send-typing         (Route. "/channels/{channel}/typing" :post)
-   :get-gateway         (Route. "/gateway" :get)
-   :get-bot-gateway     (Route. "/gateway/bot" :get)
-   :application-info    (Route. "/oauth2/applications/@me" :get)})
+   :send-typing                   (Route. "/channels/{channel}/typing" :post)
+   :get-gateway                   (Route. "/gateway" :get)
+   :get-bot-gateway               (Route. "/gateway/bot" :get)
+   :application-info              (Route. "/oauth2/applications/@me" :get)})
 
 (defn get-endpoint [endpoint-key endpoint-args]
   (if-let [{:keys [endpoint method]} (get endpoint-mapping endpoint-key)]
@@ -417,6 +422,17 @@
 ;;; Roles
 (defn get-roles [auth guild]
   (discord-request :get-roles auth :guild guild))
+
+;;; Handling interactions
+(defn respond-to-interaction
+  [auth interaction response]
+  (let [interaction-id (:id interaction)
+        interaction-token (:token interaction)]
+    (println (json/write-str response))
+    (println :interaction-id interaction-id)
+    (println :interaction-token interaction-token)
+    (discord-request
+      :respond-to-interaction auth :id interaction-id :token interaction-token :json response)))
 
 ;;; Miscellaneous
 (defn send-typing [auth channel]
