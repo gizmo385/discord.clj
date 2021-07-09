@@ -2,8 +2,8 @@
   (:require
     [clojure.string :as s]
     [discord.bot :as bot]
-    [discord.components :as c]
-    [discord.interactions :as i]
+    [discord.interactions.components :as c]
+    [discord.interactions.core :as i]
     [discord.embeds :as e]
     [discord.http :as http]
     [discord.utils :as utils]))
@@ -109,13 +109,9 @@
 (defmethod c/handle-button-press :default
   [original-message gateway custom-id]
   (let [response (format "You interacted with %s" custom-id)]
-    (i/defer-channel-message-response original-message gateway)
-    (Thread/sleep 5000)
     (i/channel-message-response original-message gateway response nil nil)))
 
 (defmethod c/handle-menu-selection :default
   [original-message gateway custom-id selected-values]
   (let [response (format "You selected [%s] from %s" selected-values custom-id)]
-    (i/defer-update-message-response original-message gateway)
-    (Thread/sleep 5000)
-    (i/update-message original-message gateway response nil nil)))
+    (i/channel-message-response original-message gateway response nil nil)))

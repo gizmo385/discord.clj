@@ -1,4 +1,4 @@
-(ns discord.interactions
+(ns discord.interactions.core
   (:require
     [clojure.data.json :as json]
     [discord.gateway :as gw]

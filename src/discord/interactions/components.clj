@@ -1,5 +1,5 @@
-(ns discord.components
-  (:require [discord.interactions :as i]))
+(ns discord.interactions.components
+  (:require [discord.interactions.core :as i]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Enums defined in the Discord developer docs
