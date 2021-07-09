@@ -165,6 +165,14 @@
    ; TODO: Implement this :)
    :update-interaction-response   (Route. "/interactions/{id}/{token}/messages/@original" :patch)
 
+   ;; Slash commands
+   :create-global-slash-command   (Route. "/applications/{application_id}/commands" :post)
+   :create-guild-slash-command   (Route. "/applications/{application_id}/guilds/{guild_id}/commands" :post)
+   :update-global-slash-command   (Route. "/applications/{application_id}/commands" :patch)
+   :update-guild-slash-command   (Route. "/applications/{application_id}/guilds/{guild_id}/commands" :patch)
+   :delete-global-slash-command   (Route. "/applications/{application_id}/commands" :remove)
+   :delete-guild-slash-command   (Route. "/applications/{application_id}/guilds/{guild_id}/commands" :remove)
+
    ;; Miscellaneous
    :send-typing                   (Route. "/channels/{channel}/typing" :post)
    :get-gateway                   (Route. "/gateway" :get)
@@ -428,11 +436,21 @@
   [auth interaction response]
   (let [interaction-id (:id interaction)
         interaction-token (:token interaction)]
-    (println (json/write-str response))
-    (println :interaction-id interaction-id)
-    (println :interaction-token interaction-token)
     (discord-request
       :respond-to-interaction auth :id interaction-id :token interaction-token :json response)))
+
+;;; Managing slash commands
+(defn create-global-slash-command
+  [auth application-id command]
+  (discord-request :create-global-slash-command auth :application-id application-id :json command))
+
+(defn update-global-slash-command
+  [auth application-id command]
+  (discord-request :update-global-slash-command auth :application-id application-id :json command))
+
+(defn delete-global-slash-command
+  [auth application-id command]
+  (discord-request :delete-global-slash-command auth :application-id application-id :json command))
 
 ;;; Miscellaneous
 (defn send-typing [auth channel]
