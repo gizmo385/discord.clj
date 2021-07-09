@@ -95,9 +95,9 @@
       (get-in settings [guild-id channel-id] []))))
 
 ;;; Create a extension that will be used to add and remove blocked words for servers
-(bot/install-modules!
-  (bot/with-module :filter
-    (bot/command
+(bot/install-prefix-commands!
+  (bot/prefix-command-tree :filter
+    (bot/prefix-command
       :list [client message]
       (let [channel       (get-in message [:channel :id])
           guild         (get-in message [:channel :guild-id])
@@ -108,28 +108,28 @@
              (bot/reply-in-dm client message))))
 
     ;; Blocking and unblocking on a bot-global basis
-    (bot/with-module :global
-      (bot/command
+    (bot/prefix-command-tree :global
+      (bot/prefix-command
         :block [client message & words-to-block]
         (if (perm/has-permission? client message perm/ADMINISTRATOR)
           (do (block-words words-to-block)
               (bot/reply-in-channel client message "Those words are now globally blocked."))
           (bot/reply-in-channel "You don't have permission to block words.")))
-      (bot/command
+      (bot/prefix-command
         :unblock [client message & words-to-unblock]
         (when (perm/has-permission? client message perm/ADMINISTRATOR)
           (unblock-words words-to-unblock))))
 
     ;; Blocking and unblocking on a per-guild basis
-    (bot/with-module :guild
-      (bot/command
+    (bot/prefix-command-tree :guild
+      (bot/prefix-command
         :block [client message & words-to-block]
         (if (perm/has-permission? client message perm/MANAGE-GUILD)
           (let [guild-id (get-in message [:channel :guild-id])]
             (block-words words-to-block guild-id)
             (bot/reply-in-channel client message "Those words are now blocked in this guild."))
           (bot/reply-in-channel client message "You don't have permission to block words.")))
-      (bot/command
+      (bot/prefix-command
         :unblock [client message & words-to-unblock]
         (if (perm/has-permission? client message perm/MANAGE-GUILD)
           (let [guild-id (get-in message [:channel :guild-id])]
@@ -138,8 +138,8 @@
           (bot/reply-in-channel client message "You don't have permission to unblock words."))))
 
     ;; Blocking and unblocking on a per-channel basis
-    (bot/with-module :channel
-      (bot/command
+    (bot/prefix-command-tree :channel
+      (bot/prefix-command
         :block [client message & words-to-block]
         (if (perm/has-permission? client message perm/MANAGE-CHANNELS)
           (let [channel-id (get-in message [:channel :id])
@@ -148,7 +148,7 @@
             (bot/reply-in-channel
               client message "Those words are now blocked in this guild channel"))
           (bot/reply-in-channel client message "You don't have permission to block words.")))
-      (bot/command
+      (bot/prefix-command
         :unblock [client message & words-to-unblock]
         (if (perm/has-permission? client message perm/MANAGE-CHANNELS)
           (let [channel-id (get-in message [:channel :id])

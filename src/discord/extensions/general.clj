@@ -27,8 +27,8 @@
       [:scissors :paper]      ":newspaper: You win! :newspaper:")
     "Please choose either rock, paper, or scissors."))
 
-(bot/install-modules!
-  (bot/command
+(bot/install-prefix-commands!
+  (bot/prefix-command
     :say [client message & _]
     (let [space-index (s/index-of (:content message) " ")]
       (if (some? space-index)
@@ -36,18 +36,18 @@
         (bot/reply-in-channel
           client message "https://media2.giphy.com/media/L1W47cPwMyrUs7zEjP/giphy.gif"))))
 
-  (bot/command
+  (bot/prefix-command
     :botsay [client message & _]
     (let [space-index (s/index-of (:content message) " ")]
       (bot/delete-original-message client message)
       (when (some? space-index)
         (bot/reply-in-channel client message (subs (:content message) space-index)))))
 
-  (bot/command
+  (bot/prefix-command
     :working [client message]
     (bot/reply-in-channel client message "https://giphy.com/gifs/9K2nFglCAQClO"))
 
-  (bot/command
+  (bot/prefix-command
     :roll
     ([client message]
      (bot/reply-in-channel client message (format ":game_die: %d :game_die:" (inc (rand-int 100)))))
@@ -58,13 +58,13 @@
           (catch Exception e
             (bot/reply-in-channel client message "Please supply a number :)")))))
 
-  (bot/command
+  (bot/prefix-command
     :choose [client message & choices]
     (if (not-empty choices)
       (bot/reply-in-channel client message (rand-nth choices))
       (bot/reply-in-channel client message "Error: Nothing to choose from")))
 
-  (bot/command
+  (bot/prefix-command
     :servers [client message]
     (let [bot-servers (http/get-servers client)]
       (->> bot-servers
@@ -73,16 +73,16 @@
            (format "Servers I'm a part of: \n%s")
            (bot/reply-in-channel client message))))
 
-  (bot/command
+  (bot/prefix-command
     :flip [client message]
     (let [res (rand-nth ["Heads" "Tails"])]
       (bot/reply-in-channel client message (format "Flipping a coin....%s" res))))
 
-  (bot/command
+  (bot/prefix-command
     :rps [client message user-choice]
     (bot/reply-in-channel client message (rock-paper-scissors (keyword user-choice))))
 
-  (bot/command
+  (bot/prefix-command
     :count [client message number]
     (try
       (let [count-limit (Integer/parseInt number)]
@@ -90,7 +90,7 @@
           (bot/reply-in-channel client message (format "Number: %d" n))))
       (catch NumberFormatException _
         (bot/reply-in-channel client message "Error: Please supply a number!"))))
-  (bot/command
+  (bot/prefix-command
     :components [client message]
     (let [components [(c/action-row
                         (c/primary-button :primary :label "Primary")

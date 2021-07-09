@@ -44,10 +44,10 @@
   [invocation client message]
   (apply (:handler invocation) client message (:args invocation)))
 
-(defn with-module [module-name & children]
+(defn prefix-command-tree [module-name & children]
   {module-name (apply merge children)})
 
-(defmacro command
+(defmacro prefix-command
   [command & fn-tail]
   `(hash-map ~command (fn ~(symbol (format "command-invocation-%s" (name command))) ~@fn-tail)))
 
@@ -72,15 +72,15 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Defining the global module/command registry
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defonce installed-modules (atom {}))
+(defonce installed-prefix-commands (atom {}))
 
-(defn reset-installed-modules! []
-  (reset! installed-modules {}))
+(defn reset-installed-prefix-commands! []
+  (reset! installed-prefix-commands {}))
 
-(defn install-modules!
+(defn install-prefix-commands!
   [& new-modules]
   (doseq [nm new-modules]
-    (swap! installed-modules merge nm)))
+    (swap! installed-prefix-commands merge nm)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Functions to quickly delete or reply to messages from users of the bot
@@ -156,7 +156,7 @@
     ;; If the message starts with the bot prefix, we'll dispatch to the correct handler for
     ;; that command.
     (when (-> message :content (starts-with? prefix))
-      (go (dispatch-to-command-handler client message prefix @installed-modules)))
+      (go (dispatch-to-command-handler client message prefix @installed-prefix-commands)))
 
     ;; For every message, we'll dispatch to the handlers. This allows for more sophisticated
     ;; handling of messages that don't necessarily match the prefix (i.e. matching & deleting
@@ -190,7 +190,7 @@
 (defn load-module-folders! []
   (doseq [folder (config/get-extension-folders)]
     (load-clojure-files-in-folder! folder))
-  (let [installed-module-names (keys @installed-modules)]
+  (let [installed-module-names (keys @installed-prefix-commands)]
     (timbre/infof "Loaded %d extensions: %s."
                   (count installed-module-names)
                   (s/join ", " installed-module-names))))
@@ -201,14 +201,14 @@
   [client message]
   "Reload the configured extension folders."
   (do
-      (reset-installed-modules!)
+      (reset-installed-prefix-commands!)
       (clear-handlers!)
       (load-module-folders!)
       (register-builtins!)
       (reply-in-channel client message "Successfully reloaded all extension folders."))
   #_(if (perm/has-permission? client message perm/ADMINISTRATOR)
     (do
-      (reset-installed-modules!)
+      (reset-installed-prefix-commands!)
       (clear-handlers!)
       (load-module-folders!)
       (register-builtins!)
@@ -216,11 +216,11 @@
     (reply-in-channel client message "You do not have permission to reload the bot!!")))
 
 (defn register-builtins! []
-  (install-modules!
-    (command
+  (install-prefix-commands!
+    (prefix-command
       :help [client original-message]
-      (reply-in-dm client original-message (str (keys @installed-modules))))
-    (command :reload [client message] (reload-all-commands! client message))))
+      (reply-in-dm client original-message (str (keys @installed-prefix-commands))))
+    (prefix-command :reload [client message] (reload-all-commands! client message))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Bot Creation

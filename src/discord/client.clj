@@ -74,7 +74,6 @@
      (go-loop []
        (when-let [{:keys [channel content]} (<! send-chan)]
          (try
-           (timbre/info "Sending message with content: %s" (json/write-str content))
            (send-message client channel content)
            (catch Exception e (timbre/errorf "Error sending message: %s" e)))
          (recur)))

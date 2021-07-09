@@ -66,8 +66,8 @@
         (bot/reply-in-channel client message "Removed all aliases."))
     (bot/reply-in-channel client message "You don't have permission to remove aliases.")))
 
-(bot/install-modules!
-  (bot/with-module :alias
+(bot/install-prefix-commands!
+  (bot/prefix-command-tree :alias
     {:add add-alias
      :list list-aliases
      :remove remove-aliases
