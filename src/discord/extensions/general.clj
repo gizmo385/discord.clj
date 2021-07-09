@@ -1,9 +1,11 @@
 (ns discord.extensions.general
-  (:require [clojure.string :as s]
-            [discord.bot :as bot]
-            [discord.embeds :as e]
-            [discord.http :as http]
-            [discord.utils :as utils]))
+  (:require
+    [clojure.string :as s]
+    [discord.bot :as bot]
+    [discord.components :as c]
+    [discord.embeds :as e]
+    [discord.http :as http]
+    [discord.utils :as utils]))
 
 (defn rock-paper-scissors
   [user-choice]
@@ -86,4 +88,19 @@
         (doseq [n (range count-limit)]
           (bot/reply-in-channel client message (format "Number: %d" n))))
       (catch NumberFormatException _
-        (bot/reply-in-channel client message "Error: Please supply a number!")))))
+        (bot/reply-in-channel client message "Error: Please supply a number!"))))
+  (bot/command
+    :components [client message]
+    (let [components [(c/action-row
+                        (c/primary-button :primary :label "Primary")
+                        (c/secondary-button :secondary :label "Secondary")
+                        (c/success-button :success :label "Success")
+                        (c/danger-button :danger :label "Danger")
+                        (c/link-button "http://google.com" :label "Google it"))
+                      (c/action-row
+                        (c/select-menu
+                          :cool-menu
+                          [(c/menu-option "Option 1" :option1 :description "Testing")
+                           (c/menu-option "Option 2" :option2 :description "Testing")]
+                          :placeholder-text "Select a cool option"))]]
+      (bot/reply-in-channel client message "Hi" components))))

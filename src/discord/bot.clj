@@ -86,23 +86,28 @@
 ;;; Functions to quickly delete or reply to messages from users of the bot
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn build-reply
-  [channel reply]
-  (if (embeds/embed? reply)
-    {:channel channel :content "" :embed reply}
-    {:channel channel :content reply}))
+  [channel reply components embed]
+  (let [content (cond-> {:content reply}
+                  (some? components) (assoc :components components)
+                  (some? embed) (assoc :embed embed))]
+    {:channel channel :content content}))
 
 (defn reply-in-channel
-  [client original-message reply]
-  (let [send-channel (:send-channel client)
-        message-channel (:channel original-message)]
-    (go (>! send-channel (build-reply message-channel reply)))))
+  ([client original-message reply]
+   (reply-in-channel client original-message reply nil nil))
+  ([client original-message reply components]
+   (reply-in-channel client original-message reply components nil))
+  ([client original-message reply components embed]
+   (let [send-channel (:send-channel client)
+         message-channel (:channel original-message)]
+     (go (>! send-channel (build-reply message-channel reply components embed))))))
 
 (defn reply-in-dm
-  [client original-message reply]
+  [client original-message reply & {:keys [embed components]}]
   (let [user-id (get-in original-message [:author :id])
         dm-channel (http/create-dm-channel client user-id)
         send-channel (:send-channel client)]
-    (go (>! send-channel (build-reply dm-channel reply)))))
+    (go (>! send-channel (build-reply dm-channel reply components)))))
 
 (defn delete-original-message
   [client original-message]
@@ -185,7 +190,13 @@
 (defn reload-all-commands!
   [client message]
   "Reload the configured extension folders."
-  (if (perm/has-permission? client message perm/ADMINISTRATOR)
+  (do
+      (reset-installed-modules!)
+      (clear-handlers!)
+      (load-module-folders!)
+      (register-builtins!)
+      (reply-in-channel client message "Successfully reloaded all extension folders."))
+  #_(if (perm/has-permission? client message perm/ADMINISTRATOR)
     (do
       (reset-installed-modules!)
       (clear-handlers!)

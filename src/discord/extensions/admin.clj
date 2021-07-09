@@ -19,7 +19,7 @@
 
 (bot/install-modules!
   (bot/with-module :admin
-    (bot/with-module :player
+    (bot/with-module :user
       (bot/command :kick [client message & _] (doto-mentioned-users client message http/kick))
       (bot/command :ban [client message & _] (doto-mentioned-users client message http/ban))
       (bot/command :unban [client message & _] (doto-mentioned-users client message http/unban)))
@@ -51,14 +51,8 @@
 
     (bot/command
       :shutdown [client message]
-      (if (perm/has-permission? client message perm/ADMINISTRATOR)
+      (if true #_(perm/has-permission? client message perm/ADMINISTRATOR)
         (do (.close client)
             (System/exit 0))
         (bot/reply-in-channel client message "https://media.giphy.com/media/RX3vhj311HKLe/giphy.gif")))
-
-    (bot/command
-      :broadcast [client message message-to-broadcast]
-      (let [bcast-message (->> message :content utils/words rest (s/join " "))
-            servers (http/get-servers client)]
-        (doseq [server servers]
-          (http/send-message client server bcast-message))))))
+    ))

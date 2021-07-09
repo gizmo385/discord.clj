@@ -1,5 +1,6 @@
 (ns discord.client
   (:require [clojure.core.async :refer [<! >! close! go go-loop] :as async]
+            [clojure.data.json :as json]
             [taoensso.timbre :as timbre]
             [discord.gateway :refer [Gateway] :as gw]
             [discord.http :as http]
@@ -9,7 +10,7 @@
 ;;; Representing a Discord client connected to the Discord server
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defprotocol DiscordClient
-  (send-message [this channel content embed tts]))
+  (send-message [this channel content]))
 
 (defrecord GeneralDiscordClient [auth gateway message-handler send-channel receive-channel]
   Authenticated
@@ -25,8 +26,8 @@
     (close! receive-channel))
 
   DiscordClient
-  (send-message [this channel content embed tts]
-    (http/send-message (:auth this) channel content :embed embed :tts tts)))
+  (send-message [this channel content]
+    (http/send-message (:auth this) channel content)))
 
 
 (defn create-discord-client
@@ -71,9 +72,10 @@
      ;; Read messages from the send channel and call send-message on them. This allows for
      ;; asynchronous messages sending
      (go-loop []
-       (when-let [{:keys [channel content embed tts]} (<! send-chan)]
+       (when-let [{:keys [channel content]} (<! send-chan)]
          (try
-           (send-message client channel content embed tts)
+           (timbre/info "Sending message with content: %s" (json/write-str content))
+           (send-message client channel content)
            (catch Exception e (timbre/errorf "Error sending message: %s" e)))
          (recur)))
 
