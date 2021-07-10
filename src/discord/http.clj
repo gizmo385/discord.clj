@@ -166,12 +166,12 @@
    :update-interaction-response   (Route. "/interactions/{id}/{token}/messages/@original" :patch)
 
    ;; Slash commands
-   :create-global-slash-command   (Route. "/applications/{application_id}/commands" :post)
-   :create-guild-slash-command   (Route. "/applications/{application_id}/guilds/{guild_id}/commands" :post)
-   :update-global-slash-command   (Route. "/applications/{application_id}/commands" :patch)
-   :update-guild-slash-command   (Route. "/applications/{application_id}/guilds/{guild_id}/commands" :patch)
-   :delete-global-slash-command   (Route. "/applications/{application_id}/commands" :remove)
-   :delete-guild-slash-command   (Route. "/applications/{application_id}/guilds/{guild_id}/commands" :remove)
+   :upsert-global-slash-command   (Route. "/applications/{app}/commands" :put)
+   :upsert-guild-slash-command    (Route. "/applications/{app}/guilds/{guild}/commands" :put)
+   :update-global-slash-command   (Route. "/applications/{app}/commands" :patch)
+   :update-guild-slash-command    (Route. "/applications/{app}/guilds/{guild}/commands" :patch)
+   :delete-global-slash-command   (Route. "/applications/{app}/commands" :delete)
+   :delete-guild-slash-command    (Route. "/applications/{app}/guilds/{guild}/commands" :delete)
 
    ;; Miscellaneous
    :send-typing                   (Route. "/channels/{channel}/typing" :post)
@@ -248,6 +248,7 @@
   [endpoint-key auth & {:keys [json params args constructor] :or {constructor identity} :as opts}]
   (let [{:keys [endpoint method]} (get-endpoint endpoint-key opts)
         request                   (build-request endpoint method auth json params)]
+    (timbre/infof "Sending request: %s" request)
     (try+
       (send-api-request request constructor)
 
@@ -440,17 +441,32 @@
       :respond-to-interaction auth :id interaction-id :token interaction-token :json response)))
 
 ;;; Managing slash commands
-(defn create-global-slash-command
-  [auth application-id command]
-  (discord-request :create-global-slash-command auth :application-id application-id :json command))
+(defn bulk-upsert-global-slash-command
+  [auth application-id commands]
+  (discord-request :upsert-global-slash-command auth :app application-id :json commands))
 
 (defn update-global-slash-command
   [auth application-id command]
-  (discord-request :update-global-slash-command auth :application-id application-id :json command))
+  (discord-request :update-global-slash-command auth :app application-id :json command))
 
 (defn delete-global-slash-command
   [auth application-id command]
-  (discord-request :delete-global-slash-command auth :application-id application-id :json command))
+  (discord-request :delete-global-slash-command auth :app application-id :json command))
+
+(defn upsert-guild-slash-command
+  [auth application-id guild-id command]
+  (discord-request
+    :upsert-guild-slash-command auth :app application-id :guild guild-id :json command))
+
+(defn update-guild-slash-command
+  [auth application-id guild-id command]
+  (discord-request
+    :update-guild-slash-command auth :app application-id :guild guild-id :json command))
+
+(defn delete-guild-slash-command
+  [auth application-id guild-id command]
+  (discord-request
+    :delete-guild-slash-command auth :app application-id :guild guild-id :json command))
 
 ;;; Miscellaneous
 (defn send-typing [auth channel]

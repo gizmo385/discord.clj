@@ -8,6 +8,7 @@
             [discord.embeds :as embeds]
             [discord.http :as http]
             [discord.permissions :as perm]
+            [discord.interactions.slash :as slash]
             [discord.utils :as utils]
             [discord.types :as types]))
 
@@ -117,7 +118,7 @@
    (let [user-id (get-in original-message [:author :id])
          dm-channel (http/create-dm-channel client user-id)
          send-channel (:send-channel client)]
-     (go (>! send-channel (build-reply dm-channel reply components))))))
+     (go (>! send-channel (build-reply dm-channel reply components embed))))))
 
 (defn delete-original-message
   [client original-message]
@@ -205,6 +206,7 @@
       (clear-handlers!)
       (load-module-folders!)
       (register-builtins!)
+      (slash/register-global-commands! (types/configuration-auth))
       (reply-in-channel client message "Successfully reloaded all extension folders."))
   #_(if (perm/has-permission? client message perm/ADMINISTRATOR)
     (do
@@ -257,9 +259,11 @@
    directories supplied. This allows you to dynamically add files to a extensions/ directory and
    have them get automatically loaded by the bot when it starts up."
   []
-  ;; Loads all the clojure files in the folders supplied. Also load the builtin commands.
+  ;; Loads all the clojure files in the folders supplied. Then load the builtin commands register
+  ;; the slash commands with the API
   (load-module-folders!)
   (register-builtins!)
+  (slash/register-global-commands! (types/configuration-auth))
 
   ;; Opens a bot with those extensions
   (let [prefix (config/get-prefix)

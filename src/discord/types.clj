@@ -45,7 +45,10 @@
   Long
     (->snowflake [l] l)
   String
-    (->snowflake [s] s))
+    (->snowflake [s] s)
+  nil
+    (->snowflake [_]
+      (println "AHHHHHHHHHHHHHHHH SNOWFLAKE-ABLE THING OF NIL RECIEVED")))
 
 ;;; Mapping the returns from the Discord API enumerated types into Clojure keywords
 (defonce channel-type

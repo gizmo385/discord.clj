@@ -4,9 +4,11 @@
     [discord.bot :as bot]
     [discord.interactions.components :as c]
     [discord.interactions.core :as i]
+    [discord.interactions.slash :as slash]
     [discord.embeds :as e]
     [discord.http :as http]
-    [discord.utils :as utils]))
+    [discord.utils :as utils]
+    [discord.types :as types]))
 
 (defn rock-paper-scissors
   [user-choice]
@@ -89,29 +91,13 @@
         (doseq [n (range count-limit)]
           (bot/reply-in-channel client message (format "Number: %d" n))))
       (catch NumberFormatException _
-        (bot/reply-in-channel client message "Error: Please supply a number!"))))
-  (bot/prefix-command
-    :components [client message]
-    (let [components [(c/action-row
-                        (c/primary-button :primary :label "Primary")
-                        (c/secondary-button :secondary :label "Secondary")
-                        (c/success-button :success :label "Success")
-                        (c/danger-button :danger :label "Danger")
-                        (c/link-button "http://google.com" :label "Google it"))
-                      (c/action-row
-                        (c/select-menu
-                          :cool-menu
-                          [(c/menu-option "Option 1" :option1 :description "Testing")
-                           (c/menu-option "Option 2" :option2 :description "Testing")]
-                          :placeholder-text "Select a cool option"))]]
-      (bot/reply-in-channel client message "Hi" components))))
+        (bot/reply-in-channel client message "Error: Please supply a number!")))))
 
-(defmethod c/handle-button-press :default
-  [original-message gateway custom-id]
-  (let [response (format "You interacted with %s" custom-id)]
-    (i/channel-message-response original-message gateway response nil nil)))
+(slash/register-globally-on-startup!
+  (slash/command
+    :echo "Echo back text"
+    (slash/string-option :text "The text to echo" :required? true)))
 
-(defmethod c/handle-menu-selection :default
-  [original-message gateway custom-id selected-values]
-  (let [response (format "You selected [%s] from %s" selected-values custom-id)]
-    (i/channel-message-response original-message gateway response nil nil)))
+(defmethod slash/handle-slash-command-interaction [:echo]
+  [{:keys [interaction arguments]} gateway]
+  (i/channel-message-response interaction gateway (:text arguments) nil nil))
