@@ -1,6 +1,7 @@
 (ns discord.config
   (:require [clojure.data.json :as json]
-            [clojure.java.io :as io])
+            [clojure.java.io :as io]
+            [integrant.core :as ig])
   (:import [java.io IOException]))
 
 (defonce global-bot-settings "data/settings/settings.json")
@@ -67,3 +68,7 @@
 (defn get-application-id
   ([] (get-application-id global-bot-settings))
   ([filename] (:application-id (file-io filename :load))))
+
+(defmethod ig/init-key :discord/config
+  [_ {:keys [filename]}]
+  (file-io filename :load))

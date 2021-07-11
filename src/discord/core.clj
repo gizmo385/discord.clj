@@ -1,5 +1,8 @@
 (ns discord.core
-  (:require [discord.bot :as bot])
+  (:require
+    [discord.config :as config]
+    [discord.bot :as bot]
+    [integrant.core :as ig])
   (:gen-class))
 
 

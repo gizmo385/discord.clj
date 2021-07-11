@@ -7,7 +7,8 @@
 		org.clojure/data.json {:mvn/version "0.2.6"}
 		overtone/at-at {:mvn/version "1.2.0"}
 		stylefruits/gniazdo {:mvn/version "1.0.0"}
-        shutdown/shutdown  {:mvn/version "0.1.0-SNAPSHOT"}}
+        shutdown/shutdown  {:mvn/version "0.1.0-SNAPSHOT"}
+        integrant/integrant {:mvn/version "0.8.0"}}
  :aliases {:uberjar {:replace-deps  {com.github.seancorfield/depstar  {:mvn/version "2.0.193"}}
                      :exec-fn hf.depstar/uberjar
                      :exec-args  {:jar "target/bot.jar"
@@ -18,4 +19,4 @@
                                  cider/cider-nrepl {:mvn/version "0.22.4"}
                                  cider/piggieback {:mvn/version "0.3.8"}}
                    :main-opts  ["-m" "nrepl.cmdline" "--interactive"]
-                   :extra-paths ["test"]}}}
+                   :extra-paths ["test" "dev"]}}}

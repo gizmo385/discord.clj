@@ -11,12 +11,12 @@
             [slingshot.slingshot :refer [try+]]
             [taoensso.timbre :as timbre]
             [discord.embeds :as embeds]
-            [discord.types :refer [Authenticated Snowflake ->snowflake] :as types]
+            [discord.types :refer [Authenticated Snowflake ->snowflake api-version] :as types]
             [discord.utils :as utils]))
 
 ;;; Global constants for interacting with the API
 (defonce user-agent "discord.clj (https://github.com/gizmo385/discord.clj)")
-(defonce discord-url "https://discordapp.com/api/v9")
+(defonce discord-url (format "https://discordapp.com/api/v%s" api-version))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Defining Records relevant to the Discord APIs, as well as more useful constructors for
