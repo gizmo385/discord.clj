@@ -8,7 +8,8 @@
     [discord.embeds :as e]
     [discord.http :as http]
     [discord.utils :as utils]
-    [discord.types :as types]))
+    [discord.types :as types]
+    [discord.types.guild :as guild]))
 
 (defn rock-paper-scissors
   [user-choice]
@@ -91,7 +92,14 @@
         (doseq [n (range count-limit)]
           (bot/reply-in-channel client message (format "Number: %d" n))))
       (catch NumberFormatException _
-        (bot/reply-in-channel client message "Error: Please supply a number!")))))
+        (bot/reply-in-channel client message "Error: Please supply a number!"))))
+
+  (bot/prefix-command
+    :get-guild
+    [client message]
+    (let [raw-guild (http/get-guild client 328324837963464705)]
+      (clojure.pprint/pprint raw-guild)
+      (clojure.pprint/pprint (guild/build-guild raw-guild)))))
 
 (slash/register-globally-on-startup!
   (slash/command

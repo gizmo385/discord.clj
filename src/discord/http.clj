@@ -315,7 +315,7 @@
 
 ;;; Iteracting with guilds/servers
 (defn get-guild [auth guild]
-  (discord-request :get-guild auth :guild guild :constructor build-server))
+  (discord-request :get-guild auth :guild guild))
 
 (defn get-servers [auth]
   (discord-request :get-servers auth :constructor build-server))

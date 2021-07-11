@@ -73,13 +73,3 @@
    "vip-us-east"   :vip-us-east
    "vip-us-west"   :vip-us-west
    "vip-amsterdam" :vip-amsterdam})
-
-(defonce status
-  {"online"         :online
-   "offline"        :offline
-   "idle"           :idle
-   "do_not_disturb" :dnd
-   "invisible"      :invisible})
-
-(defonce default-avatar
-  [:blurple :gray :green :orange :red])

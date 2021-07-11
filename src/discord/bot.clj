@@ -206,7 +206,7 @@
       (clear-handlers!)
       (load-module-folders!)
       (register-builtins!)
-      (slash/register-global-commands! (types/configuration-auth))
+      ;(slash/register-global-commands! (types/configuration-auth))
       (reply-in-channel client message "Successfully reloaded all extension folders."))
   #_(if (perm/has-permission? client message perm/ADMINISTRATOR)
     (do
