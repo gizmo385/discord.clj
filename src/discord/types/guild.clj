@@ -2,16 +2,14 @@
   (:require
     [clojure.set :refer [rename-keys]]
     [discord.types.channel :as channel]
-    [discord.types.protocols :as proto]
+    [discord.types.snowflake :as sf]
     [discord.types.user :as user]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Guild members
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defrecord GuildMember
-  [user nickname roles joined-at premium-since deaf mute pending permissions]
-  proto/Snowflake
-  (->snowflake [m] (proto/->snowflake (:user m))))
+  [user nickname roles joined-at premium-since deaf mute pending permissions])
 
 (defn build-guild-member
   [m]
@@ -43,10 +41,9 @@
   [:none :tier-1 :tier-2 :tier-3])
 
 (defrecord Guild
-  [id name description owner-id region afk-channel-id afk-timeout verification-level
-   default-message-notifications explicit-content-filter roles features mfa-level application-id
-   large? member-count members channels threads max-members premium-tier premium-subscription-count
-   preferred-locale nsfw-level])
+  [id name description owner-id region verification-level default-message-notifications
+   explicit-content-filter roles features mfa-level application-id large? member-count members
+   channels threads max-members premium-tier premium-subscription-count preferred-locale nsfw-level])
 
 (defn build-guild
   "Converts a map to a guild record, to parse out of some API fields."
@@ -54,10 +51,6 @@
   (println (:premium_tier m) (type (:premium_tier m)))
   (-> m
       (rename-keys {:owner_id :owner-id
-                    :afk_channel_id :afk-channel-id
-                    :afk_timeout :afk-timeout
-                    :widget_enabled :widget-enabled?
-                    :widget_channel_id :widget-channel-id
                     :verification_level :verification-level
                     :default_message_notifications :default-message-notifications
                     :explicit_content_filter :explicit-content-filter
@@ -69,6 +62,8 @@
                     :premium_tier :premium-tier
                     :premium_subscription_count :premium-subscription-count
                     :preferred_locale :preferred-locale})
+      (update :id sf/build-snowflake)
+      (update :owner-id sf/build-snowflake)
       (update :premium-tier premium-tiers)
       (update :explicit-content-filter explicit-content-filter-levels)
       (update :verification-level verification-levels)

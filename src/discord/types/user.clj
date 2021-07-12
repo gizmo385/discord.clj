@@ -1,7 +1,7 @@
 (ns discord.types.user
   (:require
     [clojure.set :refer [rename-keys]]
-    [discord.types.protocols :as proto]))
+    [discord.types.snowflake :as sf]))
 
 (def premium-types
   "The types of premium Discord subscriptions that can be seen on a user.
@@ -19,9 +19,7 @@
 
 (defrecord User
   [id username discriminator avatar bot? system? mfa-enabled? locale email flags premium-type
-   public-flags]
-  proto/Snowflake
-  (->snowflake [u] (:id u)))
+   public-flags])
 
 (defn build-user
   "Converts a map to a channel record, to parse out of some API fields."
@@ -32,5 +30,6 @@
                     :mfa_enabled :mfa-enabled?
                     :bot :bot?
                     :system :system?})
+      (update :id sf/build-snowflake)
       (update :premium-type premium-types)
       (map->User)))

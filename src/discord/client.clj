@@ -1,10 +1,11 @@
 (ns discord.client
-  (:require [clojure.core.async :refer [<! >! close! go go-loop] :as async]
-            [clojure.data.json :as json]
-            [taoensso.timbre :as timbre]
-            [discord.gateway :refer [Gateway] :as gw]
-            [discord.http :as http]
-            [discord.types :refer [Authenticated] :as types]))
+  (:require
+    [clojure.core.async :refer [<! >! close! go go-loop] :as async]
+    [clojure.data.json :as json]
+    [taoensso.timbre :as timbre]
+    [discord.gateway :refer [Gateway] :as gw]
+    [discord.http :as http]
+    [discord.types :refer [Authenticated] :as types]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Representing a Discord client connected to the Discord server

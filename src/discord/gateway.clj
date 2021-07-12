@@ -1,14 +1,16 @@
 (ns discord.gateway
   "This implements the Discord Gateway protocol"
-  (:require [clojure.core.async :refer [>! <! go go-loop] :as async]
-            [clojure.data.json :as json]
-            [clojure.set :refer [map-invert]]
-            [gniazdo.core :as ws]
-            [taoensso.timbre :as timbre]
-            [discord.http :as http]
-            [discord.permissions :as perm]
-            [discord.types :refer [Authenticated Snowflake ->snowflake] :as types]
-            [discord.config :as config]))
+  (:require
+    [clojure.core.async :refer [>! <! go go-loop] :as async]
+    [clojure.data.json :as json]
+    [clojure.set :refer [map-invert]]
+    [gniazdo.core :as ws]
+    [taoensso.timbre :as timbre]
+    [discord.http :as http]
+    [discord.permissions :as perm]
+    [discord.types :refer [Authenticated Snowflake ->snowflake] :as types]
+    [discord.config :as config]
+    [integrant.core :as ig]))
 
 ;;; Representing a message from the API
 (defrecord Message [content attachments embeds sent-time channel author user-mentions role-mentions
@@ -308,3 +310,13 @@
         websocket     (create-websocket gateway)]
     (reset! socket websocket)
     (send-resume gateway)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Version 3.0 Refactoring WIP
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defmethod ig/init-key :discord/message-receive-channel
+  []
+  (async/chan))
+
+(defmethod ig/init-key :discord/gateway-connection
+  [_ {:keys [auth message-send-chan message-receive-chan]}])

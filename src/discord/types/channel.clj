@@ -1,7 +1,8 @@
 (ns discord.types.channel
   (:require
+    [clojure.set :refer [rename-keys]]
     [discord.types.user :as user]
-    [discord.types.protocols :as proto]))
+    [discord.types.snowflake :as sf]))
 
 (def channel-types
   "The types of channels that might exist within Discord Guilds.
@@ -17,14 +18,27 @@
 (defrecord Channel
   [id type guild-id position permission-overwrites name topic nsfw? last-message-id
    rate-limit-per-user recipients icon owner-id application-id parent-id last-pin-timestamp
-   rtc-region video-quality-mode message-count member-count]
-  proto/Snowflake
-  (->snowflake [c] (:id c)))
+   rtc-region video-quality-mode message-count member-count])
 
 (defn build-channel
   "Converts a map to a channel record, to parse out of some API fields."
   [m]
   (->> m
+       (rename-keys {:permission_overwrites :permission-overwrites
+                     :last_message_id :last-message-id
+                     :rate_limit_per_user :rate-limit-per-user
+                     :owner_id :owner-id
+                     :application_id :application-id
+                     :parent_id :parent-id
+                     :last_pin_timestamp :last-pin-timestamp
+                     :rtc_region :rtc-region
+                     :video_quality_mode :video-quality-mode
+                     :message_count :message-count
+                     :member_count :member-count})
+       (update :id sf/build-snowflake)
+       (update :guild-id sf/build-snowflake)
+       (update :last-message-id sf/build-snowflake)
+       (update :application-id sf/build-snowflake)
        (update :video-quality-mode video-quality-modes)
        (update :type channel-types)
        (update :recipients (partial map user/build-user))
