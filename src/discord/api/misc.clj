@@ -5,3 +5,8 @@
 (defn get-bot-gateway
   [auth]
   (api/discord-request auth "/gateway/bot" :get))
+
+(defn get-bot-gateway-url
+  [auth]
+  (println auth)
+  (:url (get-bot-gateway auth)))

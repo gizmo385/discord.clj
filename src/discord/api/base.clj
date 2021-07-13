@@ -1,15 +1,15 @@
 (ns discord.api.base
   (:require
+    [clj-http.client :as client]
     [clojure.data.json :as json]
     [clojure.string :as s]
-    [clj-http.client :as client]
-    [overtone.at-at :as at]
-    [slingshot.slingshot :refer [try+]]
-    [taoensso.timbre :as timbre]
     [discord.constants :as constants]
     [discord.types.auth :as a]
     [discord.types.snowflake :as sf]
-    [discord.utils :as utils]))
+    [discord.utils :as utils]
+    [overtone.at-at :as at]
+    [slingshot.slingshot :refer [try+]]
+    [taoensso.timbre :as timbre]))
 
 (defonce rate-limit-pool (at/mk-pool))
 

@@ -2,44 +2,175 @@
   (:require
     [clojure.core.async :refer [>! <! chan go go-loop] :as async]
     [clojure.data.json :as json]
-    [discord.config :as config]
     [discord.api.misc :as misc]
-    [discord.types.auth :as auth]
+    [discord.config :as config]
+    [discord.constants :as constants]
+    [discord.gateway :as old-gateway]
+    [discord.types.auth :as a]
     [gniazdo.core :as ws]
     [integrant.core :as ig]
-    [taoensso.timbre :as timbre]
-    ))
+    [taoensso.timbre :as timbre]))
 
-(defmethod ig/init-key :discord/message-send-chan [& _] (async/chan))
-(defmethod ig/init-key :discord/message-receive-chan [& _] (async/chan))
-(defmethod ig/init-key :discord/sequence-number [& _] (atom 0))
-(defmethod ig/init-key :discord/heartbeat-number [& _] (atom 0))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Record Defining
+;;;
+;;; This is ultimately what this namespace is designed to construct and manage.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defrecord GatewayV2 [auth metadata websocket]
+  a/Authenticated
+  (token-type [_] (a/token-type auth))
+  (token [_] (a/token auth)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Helpers for messages that we will be sending *to* the gateway
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn format-gateway-message
+  [operation-name data]
+  (let [op-num (.indexOf gateway-event-types operation-name)]
+    (if (not (neg? op-num))
+      {:op op-num :d data}
+      (throw (ex-info "Invalid operation name!"
+                      {:name operation-name :data data})))))
+
+(defn send-gateway-message
+  [gateway message]
+  (ws/send-msg (:websocket gateway) (json/write-str message)))
+
+(defn send-heartbeat [gateway]
+  (let [seq-num (get-in gateway [:metadata :seq-num])
+        heartbeat (format-gateway-message :heartbeat @seq-num)]
+    (timbre/infof "Sending heartbeat for seq: %s" @seq-num)
+    (send-gateway-message gateway heartbeat)))
+
+(defn send-identify
+  "Sends an identification message to the supplied Gateway. This tells the Discord gateway
+   information about ourselves."
+  [gateway]
+  (->> {:token (a/token gateway)
+        :properties {"$os"                "linux"
+                     "$browser"           "discord.clj"
+                     "$device"            "discord.clj"
+                     "$referrer"          ""
+                     "$referring_domain"  ""}
+        :compress false
+        :large_threshold 250
+        :shard [0]}
+       (format-gateway-message :identify)
+       (send-gateway-message gateway)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Gateway Control Management
+;;;
+;;; The Gateway Control events are primarily based on updating the state of the gateway connection
+;;; session
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(def gateway-event-types
+  [:dispatch :heartbeat :identify :presence :voice-state :voice-ping :resume :reconnect
+   :request-members :invalidate-session :hello :heartbeat-ack :guild-sync])
+
+(defmulti handle-gateway-control-event
+  "Specifically handle events that are sent for the purpose of managing the gateway connection."
+  (fn [message metadata]
+    (gateway-event-types (:op message))))
+
+(defmethod handle-gateway-control-event :hello
+  [message metadata]
+  (let [new-heartbeat (get-in message [:d :heartbeat_interval])]
+    (timbre/infof "Setting heartbeat interval to %d milliseconds" new-heartbeat)
+    (reset! (:heartbeat-interval metadata) new-heartbeat)))
+
+;;; Since there is nothing to do regarding a heartback ACK message, we'll just ignore it.
+(defmethod handle-gateway-control-event :heartbeat-ack [& _])
+
+(defmethod handle-gateway-control-event :heartbeat
+  [message metadata])
+
+(defmethod handle-gateway-control-event :default
+  [message metadata]
+  (timbre/infof "Unhandled gateway control event: %s" (gateway-event-types (:op message))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Gateway Message Events
+;;;
+;;; The gateway message events contain basically everything else that is transmitted over the
+;;; gateway, including messages and updates about the state of users/guilds/channels that the bot is
+;;; in. When a gateway event lacks a message type, that is when it is a control event and will be
+;;; passed to the gateway control event handler.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defmulti handle-gateway-event
+  "Handle messages from the Discord Gateway"
+  (fn handle-gateway-event-dispatch-fn [message metadata] (keyword (:t message))))
+
+(defmethod handle-gateway-event nil
+  [message metadata]
+  (handle-gateway-control-event message metadata))
+
+(defmethod handle-gateway-event :READY
+  [message metadata]
+  (reset! (:session-id metadata)
+          (get-in message [:d :session-id])))
+
+(defmethod handle-gateway-event :HELLO
+  [message metadata]
+  (timbre/info "Received 'HELLO' Discord event."))
+
+(defmethod handle-gateway-event :default
+  [message metadata]
+  (timbre/infof "Unknown message of type %s received: %s" (keyword (:t message)) message))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Connecting to the gateway and handling basic interactions with it
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defmethod ig/init-key :discord/gateway-metadata [& _]
+  {:heartbeat-interval (atom nil)
+   :seq-num (atom 0)
+   :session-id (atom 0)
+   :stop-heartbeat-chan (async/chan)
+   :recv-chan (async/chan)
+   :send-chan (async/chan)})
 
 (defmethod ig/init-key :discord/message-handler-fn
-  [_ {:keys [config]}]
-  (fn [client message]
-    (println message)))
+  [_ {:keys [config metadata]}]
+  (fn gateway-message-handler-fn [raw-message]
+    (let [message (json/read-str raw-message :key-fn keyword)
+          next-seq-num (:s message)]
+      ;; Update the sequence number (if present)
+      (when (some? next-seq-num)
+        (swap! (:seq-num metadata) max next-seq-num))
+
+      ;; Pass the message on to the handler
+      (handle-gateway-event message metadata))))
 
 (defmethod ig/init-key :discord/websocket
-  [_ {:keys [message-receive-chan auth]}]
-  (let [gateway-url (misc/get-bot-gateway auth)]
-    {:url gateway-url}
-    #_(ws/connect
+  [_ {:keys [auth message-handler-fn]}]
+  (let [gateway-url (misc/get-bot-gateway-url auth)]
+    (timbre/infof "Gateway URL: %s" gateway-url)
+    (ws/connect
       gateway-url
       :on-receive (fn [message]
-                    (timbre/infof "Received message: %s" message))
+                    (timbre/infof "Received message: %s" message)
+                    (message-handler-fn message))
       :on-connect (fn [message] (timbre/info "Connected to Discord Gateway"))
-      :on-error   (fn [message] (timbre/errorf "Error: %s" message))
-      :on-close   (fn [status reason]
-                    ;; The codes above 1001 denote erroreous closure states
-                    ;; https://developer.mozilla.org/en-US/docs/Web/API/CloseEvent
-                    (if (> 1001 status)
-                      (do
-                        (timbre/warnf "Socket closed for unexpected reason (%d): %s" status reason)
-                        (timbre/warnf "Attempting to reconnect to websocket...")
-                        #_(reconnect-gateway gateway))
-                      (do (timbre/infof "Closing Gateway websocket, not reconnecting (%d)." status)
-                          (System/exit 1)))))))
+      :on-error   (fn [message] (timbre/errorf "Error: %s" message)))))
+
+
+
 
 (defmethod ig/init-key :discord/gateway-connection
-  [_ {:keys [auth message-send-chan message-receive-chan]}])
+  [_ {:keys [auth metadata websocket]}]
+  (let [gateway (->GatewayV2 auth metadata websocket)]
+    ;; We'll send our initial heartbeat and identification events
+    (send-heartbeat gateway)
+    (send-identify gateway)
+
+    ;; Then we'll kick off a persistent loop in the background, which is sending the heartbeat.
+    (go-loop []
+      (when (-> metadata :heartbeat-interval deref some?)
+        (send-heartbeat gateway)
+        (async/alt!
+          (:stop-heartbeat-chan metadata) (timbre/warn "WebSocket closed! Stopping heartbeat")
+          (async/timeout @(:heartbeat-interval metadata)) (recur))))
+
+    (send-identify gateway)
+
+    gateway))
