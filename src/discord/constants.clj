@@ -1,5 +1,9 @@
 (ns discord.constants)
 
+(defonce api-version 6)
+(defonce user-agent "discord.clj (https://github.com/gizmo385/discord.clj)")
+(defonce discord-url (format "https://discordapp.com/api/v%s" api-version))
+
 ;; Units of time
 (defonce SECONDS-IN-MINUTE 60)
 (defonce SECONDS-IN-HOUR (* 60 SECONDS-IN-MINUTE))

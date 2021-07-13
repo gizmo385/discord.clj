@@ -310,13 +310,3 @@
         websocket     (create-websocket gateway)]
     (reset! socket websocket)
     (send-resume gateway)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Version 3.0 Refactoring WIP
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defmethod ig/init-key :discord/message-receive-channel
-  []
-  (async/chan))
-
-(defmethod ig/init-key :discord/gateway-connection
-  [_ {:keys [auth message-send-chan message-receive-chan]}])

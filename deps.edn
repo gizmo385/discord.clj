@@ -8,7 +8,8 @@
 		overtone/at-at {:mvn/version "1.2.0"}
 		stylefruits/gniazdo {:mvn/version "1.0.0"}
         shutdown/shutdown  {:mvn/version "0.1.0-SNAPSHOT"}
-        integrant/integrant {:mvn/version "0.8.0"}}
+        integrant/integrant {:mvn/version "0.8.0"}
+        integrant/repl {:mvn/version "0.3.2"}}
  :aliases {:uberjar {:replace-deps  {com.github.seancorfield/depstar  {:mvn/version "2.0.193"}}
                      :exec-fn hf.depstar/uberjar
                      :exec-args  {:jar "target/bot.jar"
