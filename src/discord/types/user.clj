@@ -1,6 +1,7 @@
 (ns discord.types.user
   (:require
     [clojure.set :refer [rename-keys]]
+    [discord.utils :as utils]
     [discord.types.snowflake :as sf]))
 
 (def premium-types
@@ -31,5 +32,5 @@
                     :bot :bot?
                     :system :system?})
       (update :id sf/build-snowflake)
-      (update :premium-type premium-types)
+      (update :premium-type (partial utils/index-of premium-types))
       (map->User)))

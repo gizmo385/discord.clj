@@ -33,3 +33,8 @@
       (+ g)
       (bit-shift-left 8)
       (+ b)))
+
+(defn index-of
+  "Calculates the index of a value v within a collection coll, using `.indexOf`."
+  [coll v]
+  (.indexOf coll v))

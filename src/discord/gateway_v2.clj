@@ -7,6 +7,7 @@
     [discord.constants :as constants]
     [discord.gateway :as old-gateway]
     [discord.types.auth :as a]
+    [discord.types.messages :as messages]
     [gniazdo.core :as ws]
     [integrant.core :as ig]
     [taoensso.timbre :as timbre]))
@@ -140,6 +141,12 @@
   [message metadata]
   (timbre/infof "Unknown message of type %s received." (keyword (:t message))))
 
+(defmethod handle-gateway-event :MESSAGE_CREATE
+  [message metadata]
+  (timbre/infof "Received user message: %s" message)
+  (let [message-payload (messages/build-message (:d message))]
+    (go (<! (:recv-chan metadata)))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Connecting to the gateway and handling basic interactions with it
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -170,11 +177,10 @@
 (defmethod ig/init-key :discord/websocket
   [_ {:keys [auth message-handler-fn]}]
   (let [gateway-url (misc/get-bot-gateway-url auth)]
-    (timbre/infof "Gateway URL: %s" gateway-url)
     (ws/connect
       gateway-url
       :on-receive message-handler-fn
-      :on-connect (fn [message] (timbre/info "Connected to Discord Gateway"))
+      :on-connect (fn [message] (timbre/infof "Connected to Discord Gateway (%s)" gateway-url))
       :on-error   (fn [message] (timbre/errorf "Error: %s" message)))))
 
 
