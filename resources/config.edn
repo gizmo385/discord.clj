@@ -4,7 +4,7 @@
  :discord/auth                  {:config #ig/ref :discord/config}
 
  ;; Information that is related to controling the Discord Gateway connection
- :discord/gateway-metadata      {}
+ :discord/gateway-metadata      {:intents [:guilds :guild-messages :direct-messages]}
 
  :discord/message-handler-fn    {:config #ig/ref :discord/config
                                  :metadata #ig/ref :discord/gateway-metadata}
@@ -13,8 +13,6 @@
  :discord/gateway-connection    {:auth #ig/ref :discord/auth
                                  :metadata #ig/ref :discord/gateway-metadata
                                  :websocket #ig/ref :discord/websocket}
- ;:discord/text-client         {:gateway-connection #ig/ref :discord/gateway-connection}
- ;:discord/bot                 {:text-client #ig/ref :discord/text-client
-                               ;:auth #ig/ref :discord/auth
-                               ;:config :discord/config}
+ ;:discord/bot                 {:config #ig/ref :discord/config
+                               ;:gateway #ig/ref :discord/gateway-connection}
  }

@@ -24,6 +24,32 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Helpers for messages that we will be sending *to* the gateway
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(def gateway-intents
+  "This is the list of the valid intents that can be supplied to the Discord gateway. The
+   corresponding bit shift values are the indices of each intent. These intents and the information
+   they correspond to within Discord are documented here:
+    https://discord.com/developers/docs/topics/gateway#gateway-intents"
+  [:guilds :guild-members :guild-bans :guild-emojis :guild-integrations :guild-webhooks
+   :guild-invites :guild-voice-states :guild-presences :guild-messages :guild-message-reactions
+   :guild-message-typing :direct-messages :direct-message-reactions :direct-message-typing])
+
+(defn intent-names->intent-value
+  "Given a list of intent names, specifically those from the gateway-intents set, calculates the
+   value that should be sent to the Discord gateway as a part of the Identify payload."
+  [desired-intents]
+  (let [intent-values (set (map (fn [intent-name] (.indexOf gateway-intents intent-name))
+                                desired-intents))]
+    (if (contains? intent-values -1)
+      (throw (ex-info "Invalid intent supplied." {:valid-intents gateway-intents
+                                                  :desired-intents desired-intents}))
+      (->> intent-values
+           (map (fn [iv] (bit-shift-left 1 iv)))
+           (reduce +)))))
+
+(def gateway-event-types
+  [:dispatch :heartbeat :identify :presence :voice-state :voice-ping :resume :reconnect
+   :request-members :invalidate-session :hello :heartbeat-ack :guild-sync])
+
 (defn format-gateway-message
   [operation-name data]
   (let [op-num (.indexOf gateway-event-types operation-name)]
@@ -34,27 +60,27 @@
 
 (defn send-gateway-message
   [gateway message]
-  (ws/send-msg (:websocket gateway) (json/write-str message)))
+  (let [formatted-message (json/write-str message)]
+    (timbre/debugf "Sending message: %s" formatted-message)
+    (ws/send-msg (:websocket gateway) formatted-message)))
 
 (defn send-heartbeat [gateway]
   (let [seq-num (get-in gateway [:metadata :seq-num])
         heartbeat (format-gateway-message :heartbeat @seq-num)]
-    (timbre/infof "Sending heartbeat for seq: %s" @seq-num)
+    (timbre/debugf "Sending heartbeat for seq: %s" @seq-num)
     (send-gateway-message gateway heartbeat)))
 
 (defn send-identify
   "Sends an identification message to the supplied Gateway. This tells the Discord gateway
    information about ourselves."
-  [gateway]
+  [gateway intents]
   (->> {:token (a/token gateway)
         :properties {"$os"                "linux"
                      "$browser"           "discord.clj"
-                     "$device"            "discord.clj"
-                     "$referrer"          ""
-                     "$referring_domain"  ""}
+                     "$device"            "discord.clj"}
         :compress false
         :large_threshold 250
-        :shard [0]}
+        :intents intents}
        (format-gateway-message :identify)
        (send-gateway-message gateway)))
 
@@ -64,10 +90,6 @@
 ;;; The Gateway Control events are primarily based on updating the state of the gateway connection
 ;;; session
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(def gateway-event-types
-  [:dispatch :heartbeat :identify :presence :voice-state :voice-ping :resume :reconnect
-   :request-members :invalidate-session :hello :heartbeat-ack :guild-sync])
-
 (defmulti handle-gateway-control-event
   "Specifically handle events that are sent for the purpose of managing the gateway connection."
   (fn [message metadata]
@@ -116,18 +138,22 @@
 
 (defmethod handle-gateway-event :default
   [message metadata]
-  (timbre/infof "Unknown message of type %s received: %s" (keyword (:t message)) message))
+  (timbre/infof "Unknown message of type %s received." (keyword (:t message))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Connecting to the gateway and handling basic interactions with it
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defmethod ig/init-key :discord/gateway-metadata [& _]
-  {:heartbeat-interval (atom nil)
-   :seq-num (atom 0)
-   :session-id (atom 0)
-   :stop-heartbeat-chan (async/chan)
-   :recv-chan (async/chan)
-   :send-chan (async/chan)})
+(defmethod ig/init-key :discord/gateway-metadata
+  [_ {:keys [intents]}]
+  (let [intents-value (intent-names->intent-value intents)]
+    {:heartbeat-interval (atom nil)
+     :intents-value intents-value
+     :intent-names intents
+     :seq-num (atom 0)
+     :session-id (atom 0)
+     :stop-heartbeat-chan (async/chan)
+     :recv-chan (async/chan)
+     :send-chan (async/chan)}))
 
 (defmethod ig/init-key :discord/message-handler-fn
   [_ {:keys [config metadata]}]
@@ -147,13 +173,9 @@
     (timbre/infof "Gateway URL: %s" gateway-url)
     (ws/connect
       gateway-url
-      :on-receive (fn [message]
-                    (timbre/infof "Received message: %s" message)
-                    (message-handler-fn message))
+      :on-receive message-handler-fn
       :on-connect (fn [message] (timbre/info "Connected to Discord Gateway"))
       :on-error   (fn [message] (timbre/errorf "Error: %s" message)))))
-
-
 
 
 (defmethod ig/init-key :discord/gateway-connection
@@ -161,7 +183,7 @@
   (let [gateway (->GatewayV2 auth metadata websocket)]
     ;; We'll send our initial heartbeat and identification events
     (send-heartbeat gateway)
-    (send-identify gateway)
+    (send-identify gateway (:intents-value metadata))
 
     ;; Then we'll kick off a persistent loop in the background, which is sending the heartbeat.
     (go-loop []
@@ -170,7 +192,5 @@
         (async/alt!
           (:stop-heartbeat-chan metadata) (timbre/warn "WebSocket closed! Stopping heartbeat")
           (async/timeout @(:heartbeat-interval metadata)) (recur))))
-
-    (send-identify gateway)
 
     gateway))
