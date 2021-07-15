@@ -183,6 +183,10 @@
       :on-connect (fn [message] (timbre/infof "Connected to Discord Gateway (%s)" gateway-url))
       :on-error   (fn [message] (timbre/errorf "Error: %s" message)))))
 
+(defmethod ig/halt-key! :discord/websocket
+  [_ websocket]
+  (timbre/infof "Closing websocket connection due to integrant halt!")
+  (ws/close websocket))
 
 (defmethod ig/init-key :discord/gateway-connection
   [_ {:keys [auth metadata websocket]}]
