@@ -1,13 +1,14 @@
 (ns discord.extensions.builtin.alias
-  (:require [clojure.core.async :refer [go >!] :as async]
-            [clojure.string :refer [starts-with?] :as s]
-            [taoensso.timbre :as timbre]
-            [discord.extensions.core :as ext]
-            [discord.extensions.utils :as ext-utils]
-            [discord.embeds :as embeds]
-            [discord.permissions :as perms]
-            [discord.config :as config]
-            [discord.constants :as const]))
+  (:require
+    [clojure.core.async :refer [go >!] :as async]
+    [clojure.string :refer [starts-with?] :as s]
+    [taoensso.timbre :as timbre]
+    [discord.extensions.core :as ext]
+    [discord.extensions.utils :as ext-utils]
+    [discord.embeds :as embeds]
+    [discord.permissions :as perms]
+    [discord.config :as config]
+    [discord.constants :as const]))
 
 ;;; Create the configuraton file if necessary
 (defonce alias-settings "data/alias/aliases.json")

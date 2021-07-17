@@ -4,8 +4,7 @@
     [clojure.string :as s]
     [discord.extensions.utils :as utils]
     [discord.config :as config]
-    [taoensso.timbre :as timbre]
-    ))
+    [taoensso.timbre :as timbre]))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

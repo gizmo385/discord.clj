@@ -1,8 +1,8 @@
-(ns discord.bot-v2
+(ns discord.bot
   (:require
     [clojure.core.async :refer [<! >! close! go go-loop] :as async]
     [clojure.string :as s]
-    [discord.gateway-v2 :as gw]
+    [discord.gateway :as gw]
     [discord.types.auth :as a]
     [discord.extensions.core :as ext]
     [discord.extensions.utils :as ext-utils]
@@ -10,7 +10,7 @@
     [taoensso.timbre :as timbre]
     ))
 
-(defrecord BotV2
+(defrecord Bot
   [config gateway message-handlers]
   a/Authenticated
   (token-type [_] (a/token-type gateway))
@@ -48,7 +48,7 @@
   [_ {:keys [config gateway]}]
   (let [handlers (atom [])
         prefix (:prefix config)
-        bot (->BotV2 config gateway handlers) ]
+        bot (->Bot config gateway handlers) ]
     (ext/load-module-folders!)
     (ext/register-builtins!)
     ;(slash/register-global-commands! (types/configuration-auth))

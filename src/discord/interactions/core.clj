@@ -39,6 +39,6 @@
   (fn [discord-message gateway]
     (:type discord-message)))
 
-(defmethod gw/handle-gateway-message :INTERACTION_CREATE
-  [raw-gateway-message gateway receive-chan]
-  (handle-interaction (:d raw-gateway-message) gateway))
+(defmethod gw/handle-gateway-event :INTERACTION_CREATE
+  [message gateway]
+  (handle-interaction (:d message) gateway))

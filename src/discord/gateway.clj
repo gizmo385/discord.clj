@@ -1,4 +1,4 @@
-(ns discord.gateway-v2
+(ns discord.gateway
   (:require
     [clojure.core.async :refer [>! <! chan go go-loop] :as async]
     [clojure.data.json :as json]
