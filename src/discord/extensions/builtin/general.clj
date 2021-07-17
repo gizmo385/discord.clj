@@ -1,15 +1,14 @@
 (ns discord.extensions.builtin.general
   (:require
     [clojure.string :as s]
+    [discord.api.guilds :as guild-api]
     [discord.extensions.core :as ext]
     [discord.extensions.utils :as ext-utils]
     [discord.interactions.components :as c]
     [discord.interactions.core :as i]
     [discord.interactions.slash :as slash]
     [discord.http :as http]
-    [discord.utils :as utils]
-    [discord.types :as types]
-    [discord.types.guild :as guild]))
+    [discord.utils :as utils]))
 
 (defn rock-paper-scissors
   [user-choice]
@@ -58,7 +57,7 @@
     ([gateway message limit]
      (try (let [limit-num (Integer/parseInt limit)]
             (ext-utils/reply-in-channel gateway message (format ":game_die: %d :game_die:"
-                                                         (inc (rand-int limit-num))))) 
+                                                         (inc (rand-int limit-num)))))
           (catch Exception e
             (ext-utils/reply-in-channel gateway message "Please supply a number :)")))))
 
@@ -98,9 +97,8 @@
   (ext/prefix-command
     :get-guild
     [gateway message]
-    (let [raw-guild (http/get-guild gateway 328324837963464705)]
-      (clojure.pprint/pprint raw-guild)
-      (clojure.pprint/pprint (guild/build-guild raw-guild)))))
+    (let [guild (guild-api/get-guild gateway (:guild-id message))]
+      (clojure.pprint/pprint guild))))
 
 (slash/register-globally-on-startup!
   (slash/command

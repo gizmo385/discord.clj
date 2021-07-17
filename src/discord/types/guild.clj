@@ -3,7 +3,9 @@
     [clojure.set :refer [rename-keys]]
     [discord.types.channel :as channel]
     [discord.types.snowflake :as sf]
-    [discord.types.user :as user]))
+    [discord.types.user :as user]
+    [discord.types.permissions :as perms]
+    [discord.types.role :as role]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Guild members
@@ -17,7 +19,17 @@
       (rename-keys {:joined_at :joined-at
                     :premium_since :premium-since})
       (update :user user/build-user)
+      (update :roles (partial map role/build-role))
+      (update :permissions #(Integer/parseInt %))
       (map->GuildMember)))
+
+(defn guild-member-has-permission?
+  [guild-member permission]
+  (perms/has-permission? (:permissions guild-member) permission))
+
+(defn guild-member-has-all-permission?
+  [guild-member permissions]
+  (perms/has-all-permissions? (:permissions guild-member) permissions))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Guild enum definitions
@@ -48,7 +60,6 @@
 (defn build-guild
   "Converts a map to a guild record, to parse out of some API fields."
   [m]
-  (println (:premium_tier m) (type (:premium_tier m)))
   (-> m
       (rename-keys {:owner_id :owner-id
                     :verification_level :verification-level
