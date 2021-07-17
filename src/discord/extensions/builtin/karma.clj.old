@@ -1,4 +1,4 @@
-(ns discord.extensions.karma
+(ns discord.extensions.builtin.karma
   (:require [clojure.string :as s]
             [taoensso.timbre :as timbre]
             [discord.bot :as bot]

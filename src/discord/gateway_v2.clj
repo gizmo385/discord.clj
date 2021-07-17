@@ -3,6 +3,7 @@
     [clojure.core.async :refer [>! <! chan go go-loop] :as async]
     [clojure.data.json :as json]
     [discord.api.misc :as misc]
+    [discord.api.channels :as channels-api]
     [discord.config :as config]
     [discord.constants :as constants]
     [discord.gateway :as old-gateway]
@@ -62,7 +63,6 @@
 (defn send-gateway-message
   [gateway message]
   (let [formatted-message (json/write-str message)]
-    (timbre/debugf "Sending message: %s" formatted-message)
     (ws/send-msg (:websocket gateway) formatted-message)))
 
 (defn send-heartbeat [gateway]
@@ -76,9 +76,9 @@
    information about ourselves."
   [gateway intents]
   (->> {:token (a/token gateway)
-        :properties {"$os"                "linux"
-                     "$browser"           "discord.clj"
-                     "$device"            "discord.clj"}
+        :properties {"$os" (System/getProperty "os.name")
+                     "$browser" "discord.clj"
+                     "$device" "discord.clj"}
         :compress false
         :large_threshold 250
         :intents intents}
@@ -144,8 +144,7 @@
 (defmethod handle-gateway-event :MESSAGE_CREATE
   [message metadata]
   (timbre/infof "Received user message: %s" message)
-  (let [message-payload (messages/build-message (:d message))]
-    (go (<! (:recv-chan metadata)))))
+  (go (->> message :d messages/build-message (>! (:recv-chan metadata)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Connecting to the gateway and handling basic interactions with it
@@ -202,5 +201,13 @@
         (async/alt!
           (:stop-heartbeat-chan metadata) (timbre/warn "WebSocket closed! Stopping heartbeat")
           (async/timeout @(:heartbeat-interval metadata)) (recur))))
+
+    ;; We want to kick off a second loop in the background that is sending messages off send-chan
+    (go-loop []
+      (when-let [{:keys [channel content]} (<! (:send-chan metadata))]
+        (timbre/infof "From send chan: %s -> %s" content channel)
+        (try (channels-api/send-message-to-channel auth channel content)
+             (catch Exception e (timbre/errorf "Error sending message: %s" e))))
+      (recur))
 
     gateway))

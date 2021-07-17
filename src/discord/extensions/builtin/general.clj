@@ -1,11 +1,11 @@
-(ns discord.extensions.general
+(ns discord.extensions.builtin.general
   (:require
     [clojure.string :as s]
-    [discord.bot :as bot]
+    [discord.extensions.core :as ext]
+    [discord.extensions.utils :as ext-utils]
     [discord.interactions.components :as c]
     [discord.interactions.core :as i]
     [discord.interactions.slash :as slash]
-    [discord.embeds :as e]
     [discord.http :as http]
     [discord.utils :as utils]
     [discord.types :as types]
@@ -30,74 +30,75 @@
       [:scissors :paper]      ":newspaper: You win! :newspaper:")
     "Please choose either rock, paper, or scissors."))
 
-(bot/install-prefix-commands!
-  (bot/prefix-command
-    :say [client message & _]
+(ext/install-prefix-commands!
+  (ext/prefix-command
+    :say [gateway message & _]
     (let [space-index (s/index-of (:content message) " ")]
       (if (some? space-index)
-        (bot/reply-in-channel client message (subs (:content message) space-index))
-        (bot/reply-in-channel
-          client message "https://media2.giphy.com/media/L1W47cPwMyrUs7zEjP/giphy.gif"))))
+        (ext-utils/reply-in-channel gateway message (subs (:content message) space-index))
+        (ext-utils/reply-in-channel
+          gateway message "https://media2.giphy.com/media/L1W47cPwMyrUs7zEjP/giphy.gif"))))
 
-  (bot/prefix-command
-    :botsay [client message & _]
+  (ext/prefix-command
+    :botsay [gateway message & _]
     (let [space-index (s/index-of (:content message) " ")]
-      (bot/delete-original-message client message)
+      (ext-utils/delete-original-message gateway message)
       (when (some? space-index)
-        (bot/reply-in-channel client message (subs (:content message) space-index)))))
+        (ext-utils/reply-in-channel gateway message (subs (:content message) space-index)))))
 
-  (bot/prefix-command
-    :working [client message]
-    (bot/reply-in-channel client message "https://giphy.com/gifs/9K2nFglCAQClO"))
+  (ext/prefix-command
+    :working [gateway message]
+    (println "Inside the working command")
+    (ext-utils/reply-in-channel gateway message "https://giphy.com/gifs/9K2nFglCAQClO"))
 
-  (bot/prefix-command
+  (ext/prefix-command
     :roll
-    ([client message]
-     (bot/reply-in-channel client message (format ":game_die: %d :game_die:" (inc (rand-int 100)))))
-    ([client message limit]
+    ([gateway message]
+     (ext-utils/reply-in-channel gateway message (format ":game_die: %d :game_die:" (inc (rand-int 100)))))
+    ([gateway message limit]
      (try (let [limit-num (Integer/parseInt limit)]
-            (bot/reply-in-channel client message (format ":game_die: %d :game_die:"
+            (ext-utils/reply-in-channel gateway message (format ":game_die: %d :game_die:"
                                                          (inc (rand-int limit-num))))) 
           (catch Exception e
-            (bot/reply-in-channel client message "Please supply a number :)")))))
+            (ext-utils/reply-in-channel gateway message "Please supply a number :)")))))
 
-  (bot/prefix-command
-    :choose [client message & choices]
+  (ext/prefix-command
+    :choose [gateway message & choices]
     (if (not-empty choices)
-      (bot/reply-in-channel client message (rand-nth choices))
-      (bot/reply-in-channel client message "Error: Nothing to choose from")))
+      (ext-utils/reply-in-channel gateway message (rand-nth choices))
+      (ext-utils/reply-in-channel gateway message "Error: Nothing to choose from")))
 
-  (bot/prefix-command
-    :servers [client message]
-    (let [bot-servers (http/get-servers client)]
+  (ext/prefix-command
+    :servers [gateway message]
+    (let [bot-servers (http/get-servers gateway)]
       (->> bot-servers
            (map :name)
            (s/join \newline)
            (format "Servers I'm a part of: \n%s")
-           (bot/reply-in-channel client message))))
+           (ext-utils/reply-in-channel gateway message))))
 
-  (bot/prefix-command
-    :flip [client message]
+  (ext/prefix-command
+    :flip [gateway message]
     (let [res (rand-nth ["Heads" "Tails"])]
-      (bot/reply-in-channel client message (format "Flipping a coin....%s" res))))
+      (ext-utils/reply-in-channel gateway message (format "Flipping a coin....%s" res))))
 
-  (bot/prefix-command
-    :rps [client message user-choice]
-    (bot/reply-in-channel client message (rock-paper-scissors (keyword user-choice))))
+  (ext/prefix-command
+    :rps [gateway message user-choice]
+    (ext-utils/reply-in-channel gateway message (rock-paper-scissors (keyword user-choice))))
 
-  (bot/prefix-command
-    :count [client message number]
+  (ext/prefix-command
+    :count [gateway message number]
     (try
       (let [count-limit (Integer/parseInt number)]
         (doseq [n (range count-limit)]
-          (bot/reply-in-channel client message (format "Number: %d" n))))
+          (ext-utils/reply-in-channel gateway message (format "Number: %d" n))))
       (catch NumberFormatException _
-        (bot/reply-in-channel client message "Error: Please supply a number!"))))
+        (ext-utils/reply-in-channel gateway message "Error: Please supply a number!"))))
 
-  (bot/prefix-command
+  (ext/prefix-command
     :get-guild
-    [client message]
-    (let [raw-guild (http/get-guild client 328324837963464705)]
+    [gateway message]
+    (let [raw-guild (http/get-guild gateway 328324837963464705)]
       (clojure.pprint/pprint raw-guild)
       (clojure.pprint/pprint (guild/build-guild raw-guild)))))
 

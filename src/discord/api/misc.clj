@@ -8,5 +8,4 @@
 
 (defn get-bot-gateway-url
   [auth]
-  (println auth)
   (:url (get-bot-gateway auth)))

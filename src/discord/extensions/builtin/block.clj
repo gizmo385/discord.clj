@@ -1,12 +1,12 @@
-(ns discord.extensions.block
-  (:require [clojure.core.async :refer [go >!] :as async]
-            [clojure.string :as s]
-            [discord.bot :as bot]
-            [discord.config :as config]
-            [discord.constants :as const]
-            [discord.http :as http]
-            [discord.permissions :as perm]
-            [discord.utils :as utils]))
+(ns discord.extensions.builtin.block
+  (:require
+    [clojure.core.async :refer [go >!] :as async]
+    [clojure.string :as s]
+    [discord.extensions.core :as ext]
+    [discord.extensions.utils :as ext-utils]
+    [discord.config :as config]
+    [discord.constants :as const]
+    [discord.permissions :as perm]))
 
 ;;; Create the configuraton file if necessary
 (defonce settings-file "data/block/settings.json")
@@ -95,68 +95,68 @@
       (get-in settings [guild-id channel-id] []))))
 
 ;;; Create a extension that will be used to add and remove blocked words for servers
-(bot/install-prefix-commands!
-  (bot/prefix-command-tree :filter
-    (bot/prefix-command
-      :list [client message]
+(ext/install-prefix-commands!
+  (ext/prefix-command-tree :filter
+    (ext/prefix-command
+      :list [gateway message]
       (let [channel       (get-in message [:channel :id])
           guild         (get-in message [:channel :guild-id])
           blocked-words (get-blocked-words guild channel)]
         (->> blocked-words
              (s/join ", ")
              (format "The following words are blocked in that channel: %s")
-             (bot/reply-in-dm client message))))
+             (ext-utils/reply-in-dm gateway message))))
 
     ;; Blocking and unblocking on a bot-global basis
-    (bot/prefix-command-tree :global
-      (bot/prefix-command
-        :block [client message & words-to-block]
-        (if (perm/has-permission? client message perm/ADMINISTRATOR)
+    (ext/prefix-command-tree :global
+      (ext/prefix-command
+        :block [gateway message & words-to-block]
+        (if (perm/has-permission? gateway message perm/ADMINISTRATOR)
           (do (block-words words-to-block)
-              (bot/reply-in-channel client message "Those words are now globally blocked."))
-          (bot/reply-in-channel "You don't have permission to block words.")))
-      (bot/prefix-command
-        :unblock [client message & words-to-unblock]
-        (when (perm/has-permission? client message perm/ADMINISTRATOR)
+              (ext-utils/reply-in-channel gateway message "Those words are now globally blocked."))
+          (ext-utils/reply-in-channel "You don't have permission to block words.")))
+      (ext/prefix-command
+        :unblock [gateway message & words-to-unblock]
+        (when (perm/has-permission? gateway message perm/ADMINISTRATOR)
           (unblock-words words-to-unblock))))
 
     ;; Blocking and unblocking on a per-guild basis
-    (bot/prefix-command-tree :guild
-      (bot/prefix-command
-        :block [client message & words-to-block]
-        (if (perm/has-permission? client message perm/MANAGE-GUILD)
+    (ext/prefix-command-tree :guild
+      (ext/prefix-command
+        :block [gateway message & words-to-block]
+        (if (perm/has-permission? gateway message perm/MANAGE-GUILD)
           (let [guild-id (get-in message [:channel :guild-id])]
             (block-words words-to-block guild-id)
-            (bot/reply-in-channel client message "Those words are now blocked in this guild."))
-          (bot/reply-in-channel client message "You don't have permission to block words.")))
-      (bot/prefix-command
-        :unblock [client message & words-to-unblock]
-        (if (perm/has-permission? client message perm/MANAGE-GUILD)
+            (ext-utils/reply-in-channel gateway message "Those words are now blocked in this guild."))
+          (ext-utils/reply-in-channel gateway message "You don't have permission to block words.")))
+      (ext/prefix-command
+        :unblock [gateway message & words-to-unblock]
+        (if (perm/has-permission? gateway message perm/MANAGE-GUILD)
           (let [guild-id (get-in message [:channel :guild-id])]
             (unblock-words words-to-unblock guild-id)
-            (bot/reply-in-channel client message "Those words are now unblocked in this guild."))
-          (bot/reply-in-channel client message "You don't have permission to unblock words."))))
+            (ext-utils/reply-in-channel gateway message "Those words are now unblocked in this guild."))
+          (ext-utils/reply-in-channel gateway message "You don't have permission to unblock words."))))
 
     ;; Blocking and unblocking on a per-channel basis
-    (bot/prefix-command-tree :channel
-      (bot/prefix-command
-        :block [client message & words-to-block]
-        (if (perm/has-permission? client message perm/MANAGE-CHANNELS)
+    (ext/prefix-command-tree :channel
+      (ext/prefix-command
+        :block [gateway message & words-to-block]
+        (if (perm/has-permission? gateway message perm/MANAGE-CHANNELS)
           (let [channel-id (get-in message [:channel :id])
                 guild-id (get-in message [:channel :guild-id])]
             (block-words words-to-block guild-id channel-id)
-            (bot/reply-in-channel
-              client message "Those words are now blocked in this guild channel"))
-          (bot/reply-in-channel client message "You don't have permission to block words.")))
-      (bot/prefix-command
-        :unblock [client message & words-to-unblock]
-        (if (perm/has-permission? client message perm/MANAGE-CHANNELS)
+            (ext-utils/reply-in-channel
+              gateway message "Those words are now blocked in this guild channel"))
+          (ext-utils/reply-in-channel gateway message "You don't have permission to block words.")))
+      (ext/prefix-command
+        :unblock [gateway message & words-to-unblock]
+        (if (perm/has-permission? gateway message perm/MANAGE-CHANNELS)
           (let [channel-id (get-in message [:channel :id])
                 guild-id (get-in message [:channel :guild-id])]
             (unblock-words words-to-unblock guild-id channel-id)
-            (bot/reply-in-channel
-              client message "Those words are now unblocked in this guild channel"))
-          (bot/reply-in-channel client message "You don't have permission to unblock words!"))))))
+            (ext-utils/reply-in-channel
+              gateway message "Those words are now unblocked in this guild channel"))
+          (ext-utils/reply-in-channel gateway message "You don't have permission to unblock words!"))))))
 
 ;;; Build a handler that will delete the blocked words when they are used and warn the user who
 ;;; submitted the naughty word :)
@@ -169,9 +169,9 @@
           (for [blocked-word blocked]
             (s/includes? message-text (name blocked-word))))))
 
-(defn block-message-handler [prefix client message]
+(defn block-message-handler [prefix gateway message]
   (when (message-needs-deletion? message)
-    (bot/delete-original-message client message)
-    (bot/reply-in-channel client message "Naughty, naughty! No swearing allowed! :see_no_evil:")))
+    (ext-utils/delete-original-message gateway message)
+    (ext-utils/reply-in-channel gateway message "Naughty, naughty! No swearing allowed! :see_no_evil:")))
 
-(bot/add-handler! block-message-handler)
+(ext/add-handler! block-message-handler)

@@ -72,4 +72,3 @@
       (update :channels (partial map channel/build-channel))
       (update :threads (partial map channel/build-channel))
       (map->Guild)))
-

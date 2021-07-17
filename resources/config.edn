@@ -13,6 +13,6 @@
  :discord/gateway-connection    {:auth #ig/ref :discord/auth
                                  :metadata #ig/ref :discord/gateway-metadata
                                  :websocket #ig/ref :discord/websocket}
- ;:discord/bot                 {:config #ig/ref :discord/config
-                               ;:gateway #ig/ref :discord/gateway-connection}
+ :discord/bot                   {:config #ig/ref :discord/config
+                                 :gateway #ig/ref :discord/gateway-connection}
  }

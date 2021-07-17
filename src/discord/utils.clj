@@ -1,10 +1,7 @@
 (ns discord.utils
-  (:require [clojure.set :refer [map-invert]]
-            [clojure.string :as s]
-            [discord.types :refer [->snowflake]]))
-
-(defn bidirectional-map [m]
-  (merge m (map-invert m)))
+  (:require
+    [clojure.string :as s]
+    [discord.types :refer [->snowflake]]))
 
 (defn words [s]
   (s/split s #"\s+"))

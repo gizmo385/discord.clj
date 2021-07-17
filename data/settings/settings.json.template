@@ -3,6 +3,6 @@
     "prefix" : "!",
     "bot-name" : "CoolDiscordBot",
     "extension-folders" : [
-        "src/discord/extensions"
+        "src/discord/extensions/builtin/"
     ]
 }

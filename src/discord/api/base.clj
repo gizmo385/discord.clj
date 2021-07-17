@@ -70,7 +70,6 @@
    :constructor f - A function which is mapped over API responses to create appropriate Records."
   [auth endpoint method & {:keys [json params args constructor] :or {constructor identity} :as opts}]
   (let [request (build-request endpoint method auth json params)]
-    (timbre/infof "Sending request: %s" request)
     (try+
       (send-api-request request constructor)
 
