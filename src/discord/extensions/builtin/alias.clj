@@ -2,7 +2,6 @@
   (:require [clojure.core.async :refer [go >!] :as async]
             [clojure.string :refer [starts-with?] :as s]
             [taoensso.timbre :as timbre]
-            [discord.bot :as bot]
             [discord.extensions.core :as ext]
             [discord.extensions.utils :as ext-utils]
             [discord.embeds :as embeds]
