@@ -1,7 +1,6 @@
 (ns discord.types.role
   (:require
     [clojure.set :refer [rename-keys]]
-    [discord.types.snowflake :as sf]
     [discord.types.permissions :as perms]))
 
 (defrecord RoleTags
@@ -9,12 +8,9 @@
 
 (defn build-role-tags
   [m]
-  (-> m
-      (rename-keys {:premium_subscriber :premium-subscriber-role?
-                    :integration_id :integration-id
-                    :bot_id :bot-id})
-      (update :bot-id sf/build-snowflake)
-      (update :integration-id sf/build-snowflake)))
+  (rename-keys m {:premium_subscriber :premium-subscriber-role?
+                  :integration_id :integration-id
+                  :bot_id :bot-id}))
 
 (defrecord Role
   [id name color hoist? position permissions managed? mentionable? tags])
@@ -25,9 +21,8 @@
       (rename-keys {:hoist :hoist?
                     :managed :managed?
                     :mentionable :mentionable?})
-      (update :id sf/build-snowflake)
-      (update :permissions #(Integer/parseInt %))
-      (update :tags (partial map build-role-tags))))
+      (update :permissions #(some-> % Long/parseLong))
+      (update :tags build-role-tags)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Helper functions for determing if a role has a particular permission

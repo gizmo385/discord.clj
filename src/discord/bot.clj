@@ -6,9 +6,9 @@
     [discord.types.auth :as a]
     [discord.extensions.core :as ext]
     [discord.extensions.utils :as ext-utils]
+    [discord.interactions.slash :as slash]
     [integrant.core :as ig]
-    [taoensso.timbre :as timbre]
-    ))
+    [taoensso.timbre :as timbre]))
 
 (defrecord Bot
   [config gateway message-handlers]
@@ -32,7 +32,6 @@
     (let [installed-commands @ext/installed-prefix-commands
           trimmed-command-message (trim-command-prefix message (:prefix config))
           invocation (ext/command->invocation (:content trimmed-command-message) installed-commands)]
-      (timbre/infof "Dispatched command: %s" invocation)
       (some-> trimmed-command-message
               (get :content)
               (ext/command->invocation installed-commands)
@@ -51,7 +50,7 @@
         bot (->Bot config gateway handlers) ]
     (ext/load-module-folders!)
     (ext/register-builtins!)
-    ;(slash/register-global-commands! (types/configuration-auth))
+    (slash/register-global-commands! (:auth gateway))
 
     (go-loop []
       (when-let [message (<! (get-in gateway [:metadata :recv-chan]))]

@@ -1,8 +1,7 @@
 (ns discord.types.channel
   (:require
     [clojure.set :refer [rename-keys]]
-    [discord.types.user :as user]
-    [discord.types.snowflake :as sf]))
+    [discord.types.user :as user]))
 
 (def channel-types
   "The types of channels that might exist within Discord Guilds.
@@ -35,10 +34,6 @@
                      :video_quality_mode :video-quality-mode
                      :message_count :message-count
                      :member_count :member-count})
-       (update :id sf/build-snowflake)
-       (update :guild-id sf/build-snowflake)
-       (update :last-message-id sf/build-snowflake)
-       (update :application-id sf/build-snowflake)
        (update :video-quality-mode video-quality-modes)
        (update :type channel-types)
        (update :recipients (partial map user/build-user))

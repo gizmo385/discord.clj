@@ -106,5 +106,5 @@
     (slash/string-option :text "The text to echo" :required? true)))
 
 (defmethod slash/handle-slash-command-interaction [:echo]
-  [{:keys [interaction arguments]} gateway]
-  (i/channel-message-response interaction gateway (:text arguments) nil nil))
+  [{:keys [interaction arguments]} auth metadata]
+  (i/channel-message-response interaction auth (:text arguments) nil nil))

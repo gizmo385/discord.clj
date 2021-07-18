@@ -2,7 +2,6 @@
   (:require
     [clojure.set :refer [rename-keys]]
     [discord.types.channel :as channel]
-    [discord.types.snowflake :as sf]
     [discord.types.user :as user]
     [discord.types.permissions :as perms]
     [discord.types.role :as role]))
@@ -11,16 +10,16 @@
 ;;; Guild members
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defrecord GuildMember
-  [user nickname roles joined-at premium-since deaf mute pending permissions])
+  [user nickname role-ids joined-at premium-since deaf mute pending permissions])
 
 (defn build-guild-member
   [m]
   (-> m
       (rename-keys {:joined_at :joined-at
-                    :premium_since :premium-since})
+                    :premium_since :premium-since
+                    :roles :role-ids})
       (update :user user/build-user)
-      (update :roles (partial map role/build-role))
-      (update :permissions #(Integer/parseInt %))
+      (update :permissions #(some-> % Long/parseLong))
       (map->GuildMember)))
 
 (defn guild-member-has-permission?
@@ -73,8 +72,6 @@
                     :premium_tier :premium-tier
                     :premium_subscription_count :premium-subscription-count
                     :preferred_locale :preferred-locale})
-      (update :id sf/build-snowflake)
-      (update :owner-id sf/build-snowflake)
       (update :premium-tier premium-tiers)
       (update :explicit-content-filter explicit-content-filter-levels)
       (update :verification-level verification-levels)

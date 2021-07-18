@@ -2,7 +2,7 @@
   (:require
     [clojure.data.json :as json]
     [discord.gateway :as gw]
-    [discord.http :as http]))
+    [discord.api.interactions :as interactions-api]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Defining some constants from the developer documentation
@@ -26,7 +26,7 @@
                    (some? message-content) (assoc-in [:data :content] message-content)
                    (some? components) (assoc-in [:data :components] components)
                    (some? embed) (assoc-in [:data :embeds] embed))]
-    (http/respond-to-interaction auth interaction response)))
+    (interactions-api/respond-to-interaction auth interaction response)))
 
 (defn channel-message-response
   [interaction auth message components embed]
@@ -36,9 +36,9 @@
 ;;; Handling generic interactions over the gateway
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defmulti handle-interaction
-  (fn [discord-message gateway]
+  (fn [discord-message auth metadata]
     (:type discord-message)))
 
 (defmethod gw/handle-gateway-event :INTERACTION_CREATE
-  [message gateway]
-  (handle-interaction (:d message) gateway))
+  [message auth metadata]
+  (handle-interaction (:d message) auth metadata))

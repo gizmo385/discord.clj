@@ -1,8 +1,7 @@
 (ns discord.types.user
   (:require
     [clojure.set :refer [rename-keys]]
-    [discord.utils :as utils]
-    [discord.types.snowflake :as sf]))
+    [discord.utils :as utils]))
 
 (def premium-types
   "The types of premium Discord subscriptions that can be seen on a user.
@@ -31,6 +30,5 @@
                     :mfa_enabled :mfa-enabled?
                     :bot :bot?
                     :system :system?})
-      (update :id sf/build-snowflake)
       (update :premium-type (partial utils/index-of premium-types))
       (map->User)))

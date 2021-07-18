@@ -4,8 +4,8 @@
 
 (defn send-message-to-channel
   "Given a channel snowflake and a message, sends a message to that channel via the Discord API."
-  [auth channel content]
-  (if-let [channel-id (:id channel)]
+  [auth channel-id content]
+  (if (some? channel-id)
     (let [endpoint (format "/channels/%s/messages" channel-id)]
       (api/discord-request auth endpoint :post :json content))))
 

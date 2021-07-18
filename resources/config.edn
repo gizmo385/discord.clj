@@ -6,7 +6,8 @@
  ;; Information that is related to controling the Discord Gateway connection
  :discord/gateway-metadata      {:intents [:guilds :guild-messages :direct-messages]}
 
- :discord/message-handler-fn    {:config #ig/ref :discord/config
+ :discord/message-handler-fn    {:auth #ig/ref :discord/auth
+                                 :config #ig/ref :discord/config
                                  :metadata #ig/ref :discord/gateway-metadata}
  :discord/websocket             {:auth #ig/ref :discord/auth
                                  :message-handler-fn #ig/ref :discord/message-handler-fn}

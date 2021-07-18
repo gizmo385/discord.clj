@@ -2,7 +2,7 @@
   (:require
     [clojure.walk :as w]
     [discord.config :as config]
-    [discord.http :as http]
+    [discord.api.interactions :as interactions-api]
     [discord.interactions.core :as i]
     [discord.utils :as utils]
     [taoensso.timbre :as timbre]))
@@ -79,7 +79,8 @@
   (timbre/infof
     "Registering %s slash comands with Discord API" (count @global-commands-to-register-on-startup))
   (if-let [application-id (config/get-application-id)]
-    (http/bulk-upsert-global-slash-command auth application-id @global-commands-to-register-on-startup)
+    (interactions-api/bulk-upsert-global-slash-commands
+      auth application-id @global-commands-to-register-on-startup)
     (timbre/errorf "Couldn't find application ID!")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -123,14 +124,13 @@
     interaction))
 
 (defmulti handle-slash-command-interaction
-  (fn [invocation gateway] (:command-path invocation)))
+  (fn [invocation auth gateway] (:command-path invocation)))
 
 (defmethod handle-slash-command-interaction :default
-  [invocation gateway]
+  [invocation auth gateway]
   (timbre/errorf "Unhandled slash command: %s" (:command-path invocation)))
 
 (defmethod i/handle-interaction i/slash-command-interaction
-  [command-interaction gateway]
+  [command-interaction auth metadata]
   (let [invocation (interaction->slash-command-invocation command-interaction)]
-    (timbre/infof "Received command interaction: %s" (with-out-str (clojure.pprint/pprint invocation)))
-    (handle-slash-command-interaction invocation gateway)))
+    (handle-slash-command-interaction invocation auth metadata)))

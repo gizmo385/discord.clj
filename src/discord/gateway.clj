@@ -6,7 +6,6 @@
     [discord.api.channels :as channels-api]
     [discord.config :as config]
     [discord.constants :as constants]
-    [discord.gateway :as old-gateway]
     [discord.types.auth :as a]
     [discord.types.messages :as messages]
     [gniazdo.core :as ws]
@@ -122,27 +121,27 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defmulti handle-gateway-event
   "Handle messages from the Discord Gateway"
-  (fn handle-gateway-event-dispatch-fn [message metadata] (keyword (:t message))))
+  (fn handle-gateway-event-dispatch-fn [message auth metadata] (keyword (:t message))))
 
 (defmethod handle-gateway-event nil
-  [message metadata]
+  [message auth metadata]
   (handle-gateway-control-event message metadata))
 
 (defmethod handle-gateway-event :READY
-  [message metadata]
+  [message auth metadata]
   (reset! (:session-id metadata)
           (get-in message [:d :session-id])))
 
 (defmethod handle-gateway-event :HELLO
-  [message metadata]
+  [message auth metadata]
   (timbre/info "Received 'HELLO' Discord event."))
 
 (defmethod handle-gateway-event :default
-  [message metadata]
+  [message auth metadata]
   (timbre/infof "Unknown message of type %s received." (keyword (:t message))))
 
 (defmethod handle-gateway-event :MESSAGE_CREATE
-  [message metadata]
+  [message auth metadata]
   (timbre/infof "Received user message: %s" message)
   (go (->> message :d messages/build-message (>! (:recv-chan metadata)))))
 
@@ -162,7 +161,7 @@
      :send-chan (async/chan)}))
 
 (defmethod ig/init-key :discord/message-handler-fn
-  [_ {:keys [config metadata]}]
+  [_ {:keys [auth config metadata]}]
   (fn gateway-message-handler-fn [raw-message]
     (let [message (json/read-str raw-message :key-fn keyword)
           next-seq-num (:s message)]
@@ -171,7 +170,7 @@
         (swap! (:seq-num metadata) max next-seq-num))
 
       ;; Pass the message on to the handler
-      (handle-gateway-event message metadata))))
+      (handle-gateway-event message auth metadata))))
 
 (defmethod ig/init-key :discord/websocket
   [_ {:keys [auth message-handler-fn]}]
@@ -204,9 +203,8 @@
 
     ;; We want to kick off a second loop in the background that is sending messages off send-chan
     (go-loop []
-      (when-let [{:keys [channel content]} (<! (:send-chan metadata))]
-        (timbre/infof "From send chan: %s -> %s" content channel)
-        (try (channels-api/send-message-to-channel auth channel content)
+      (when-let [{:keys [channel-id content]} (<! (:send-chan metadata))]
+        (try (channels-api/send-message-to-channel auth channel-id content)
              (catch Exception e (timbre/errorf "Error sending message: %s" e))))
       (recur))
 

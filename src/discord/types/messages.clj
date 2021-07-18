@@ -1,7 +1,6 @@
 (ns discord.types.messages
   (:require
     [clojure.set :refer [rename-keys]]
-    [discord.types.snowflake :as sf]
     [discord.types.user :as user]
     [discord.types.guild :as guild]))
 
@@ -26,9 +25,6 @@
                     :edited_timestamp :edited-timestamp
                     :mentions_everyone :mentions-everyone?
                     :pinned :pinned?})
-      (update :id sf/build-snowflake)
-      (update :channel-id sf/build-snowflake)
-      (update :guild-id sf/build-snowflake)
       (update :author user/build-user)
       (update :type message-types)
       (map->Message)))
