@@ -17,12 +17,13 @@
 
 (defn build-role
   [m]
-  (-> m
-      (rename-keys {:hoist :hoist?
-                    :managed :managed?
-                    :mentionable :mentionable?})
-      (update :permissions #(some-> % Long/parseLong))
-      (update :tags build-role-tags)))
+  (when m
+    (-> m
+        (rename-keys {:hoist :hoist?
+                      :managed :managed?
+                      :mentionable :mentionable?})
+        (update :permissions #(some-> % Long/parseLong))
+        (update :tags build-role-tags))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Helper functions for determing if a role has a particular permission

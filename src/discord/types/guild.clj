@@ -14,13 +14,14 @@
 
 (defn build-guild-member
   [m]
-  (-> m
-      (rename-keys {:joined_at :joined-at
-                    :premium_since :premium-since
-                    :roles :role-ids})
-      (update :user user/build-user)
-      (update :permissions #(some-> % Long/parseLong))
-      (map->GuildMember)))
+  (when m
+    (-> m
+        (rename-keys {:joined_at :joined-at
+                      :premium_since :premium-since
+                      :roles :role-ids})
+        (update :user user/build-user)
+        (update :permissions #(some-> % Long/parseLong))
+        (map->GuildMember))))
 
 (defn guild-member-has-permission?
   [guild-member permission]
@@ -59,24 +60,25 @@
 (defn build-guild
   "Converts a map to a guild record, to parse out of some API fields."
   [m]
-  (-> m
-      (rename-keys {:owner_id :owner-id
-                    :verification_level :verification-level
-                    :default_message_notifications :default-message-notifications
-                    :explicit_content_filter :explicit-content-filter
-                    :mfa_level :mfa-level
-                    :nsfw_level :nsfw-level
-                    :application_id :application-id
-                    :member_count :member-count
-                    :max_members :max-members
-                    :premium_tier :premium-tier
-                    :premium_subscription_count :premium-subscription-count
-                    :preferred_locale :preferred-locale})
-      (update :premium-tier premium-tiers)
-      (update :explicit-content-filter explicit-content-filter-levels)
-      (update :verification-level verification-levels)
-      (update :nsfw-level nsfw-levels)
-      (update :members (partial map build-guild-member))
-      (update :channels (partial map channel/build-channel))
-      (update :threads (partial map channel/build-channel))
-      (map->Guild)))
+  (when m
+    (-> m
+        (rename-keys {:owner_id :owner-id
+                      :verification_level :verification-level
+                      :default_message_notifications :default-message-notifications
+                      :explicit_content_filter :explicit-content-filter
+                      :mfa_level :mfa-level
+                      :nsfw_level :nsfw-level
+                      :application_id :application-id
+                      :member_count :member-count
+                      :max_members :max-members
+                      :premium_tier :premium-tier
+                      :premium_subscription_count :premium-subscription-count
+                      :preferred_locale :preferred-locale})
+        (update :premium-tier premium-tiers)
+        (update :explicit-content-filter explicit-content-filter-levels)
+        (update :verification-level verification-levels)
+        (update :nsfw-level nsfw-levels)
+        (update :members (partial map build-guild-member))
+        (update :channels (partial map channel/build-channel))
+        (update :threads (partial map channel/build-channel))
+        (map->Guild))))

@@ -19,12 +19,13 @@
 
 (defn build-message
   [m]
-  (-> m
-      (rename-keys {:channel_id :channel-id
-                    :guild_id :guild-id
-                    :edited_timestamp :edited-timestamp
-                    :mentions_everyone :mentions-everyone?
-                    :pinned :pinned?})
-      (update :author user/build-user)
-      (update :type message-types)
-      (map->Message)))
+  (when m
+    (-> m
+        (rename-keys {:channel_id :channel-id
+                      :guild_id :guild-id
+                      :edited_timestamp :edited-timestamp
+                      :mentions_everyone :mentions-everyone?
+                      :pinned :pinned?})
+        (update :author user/build-user)
+        (update :type message-types)
+        (map->Message))))

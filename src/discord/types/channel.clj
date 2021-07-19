@@ -22,19 +22,20 @@
 (defn build-channel
   "Converts a map to a channel record, to parse out of some API fields."
   [m]
-  (->> m
-       (rename-keys {:permission_overwrites :permission-overwrites
-                     :last_message_id :last-message-id
-                     :rate_limit_per_user :rate-limit-per-user
-                     :owner_id :owner-id
-                     :application_id :application-id
-                     :parent_id :parent-id
-                     :last_pin_timestamp :last-pin-timestamp
-                     :rtc_region :rtc-region
-                     :video_quality_mode :video-quality-mode
-                     :message_count :message-count
-                     :member_count :member-count})
-       (update :video-quality-mode video-quality-modes)
-       (update :type channel-types)
-       (update :recipients (partial map user/build-user))
-       (map->Channel)))
+  (when m
+    (-> m
+        (rename-keys {:permission_overwrites :permission-overwrites
+                      :last_message_id :last-message-id
+                      :rate_limit_per_user :rate-limit-per-user
+                      :owner_id :owner-id
+                      :application_id :application-id
+                      :parent_id :parent-id
+                      :last_pin_timestamp :last-pin-timestamp
+                      :rtc_region :rtc-region
+                      :video_quality_mode :video-quality-mode
+                      :message_count :message-count
+                      :member_count :member-count})
+        (update :video-quality-mode video-quality-modes)
+        (update :type channel-types)
+        (update :recipients (partial map user/build-user))
+        (map->Channel))))
