@@ -2,7 +2,8 @@
   (:require
     [clojure.data.json :as json]
     [discord.gateway :as gw]
-    [discord.api.interactions :as interactions-api]))
+    [discord.api.interactions :as interactions-api]
+    [discord.types.interaction :as interaction]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Defining some constants from the developer documentation
@@ -21,11 +22,11 @@
 (defn respond*
   "Responds to an interaction with a message of a certain type, optionally including message
    content, message components, and message embeds."
-  [interaction auth response-type message-content components embed]
+  [interaction auth response-type message-content components embeds]
   (let [response (cond-> {:type response-type}
                    (some? message-content) (assoc-in [:data :content] message-content)
                    (some? components) (assoc-in [:data :components] components)
-                   (some? embed) (assoc-in [:data :embeds] embed))]
+                   (some? embeds) (assoc-in [:data :embeds] embeds))]
     (interactions-api/respond-to-interaction auth interaction response)))
 
 (defn channel-message-response
@@ -41,4 +42,4 @@
 
 (defmethod gw/handle-gateway-event :INTERACTION_CREATE
   [message auth metadata]
-  (handle-interaction (:d message) auth metadata))
+  (-> message :d interaction/build-interaction (handle-interaction auth metadata)))

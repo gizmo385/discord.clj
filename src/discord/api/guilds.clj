@@ -22,6 +22,4 @@
   [auth guild-id]
   (let [endpoint (format "/guilds/%s/roles" guild-id)
         guild-roles-response (api/discord-request auth endpoint :get)]
-    (println "RESPONSE")
-    (clojure.pprint/pprint guild-roles-response)
     (map role/build-role guild-roles-response)))
