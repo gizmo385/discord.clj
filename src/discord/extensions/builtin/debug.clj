@@ -56,7 +56,8 @@
 (defmethod slash/handle-slash-command-interaction [:debug :get-permissions]
   [{:keys [interaction arguments]} auth metadata]
   (if-let [guild-id (:guild-id interaction)]
-    (let [user-id (or (:user arguments) (get-in interaction [:member :user :id]))
+    (let [user-id (or (:user arguments)
+                      (i/interaction->user-id interaction))
           guild-member (if (:user arguments)
                          (guilds-api/get-guild-member auth guild-id user-id)
                          (:member interaction))
@@ -67,11 +68,13 @@
       (i/channel-message-response interaction auth message nil [permissions-embed]))
     (i/channel-message-response interaction auth "Please run this command within a guild!" nil nil)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Determining when a user's account was created
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defmethod slash/handle-slash-command-interaction [:debug :account-creation-date]
   [{:keys [interaction arguments]} auth _]
   (let [user-id (or (:user arguments)
-                    (get-in interaction [:member :user :id])
-                    (get-in interaction [:user :id]))
+                    (i/interaction->user-id interaction))
         creation-timestamp (quot (sf/snowflake->timestamp user-id) 1000)
         message (format "Account for <@%s> created at <t:%s:F>" user-id creation-timestamp)]
     (i/channel-message-response interaction auth message nil nil)))

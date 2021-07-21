@@ -5,7 +5,6 @@
     [discord.api.misc :as misc]
     [discord.api.channels :as channels-api]
     [discord.config :as config]
-    [discord.constants :as constants]
     [discord.types.auth :as a]
     [discord.types.messages :as messages]
     [gniazdo.core :as ws]

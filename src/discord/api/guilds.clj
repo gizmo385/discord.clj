@@ -4,6 +4,9 @@
     [discord.types.guild :as guild]
     [discord.types.role :as role]))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Retrieving information about guilds
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn get-guild
   [auth guild-id]
   (guild/build-guild (api/discord-request auth (format "/guilds/%s" guild-id) :get)))
@@ -23,3 +26,11 @@
   (let [endpoint (format "/guilds/%s/roles" guild-id)
         guild-roles-response (api/discord-request auth endpoint :get)]
     (map role/build-role guild-roles-response)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Modifying guilds
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn change-voice-region
+  [auth guild-id new-region]
+  (let [endpoint (format "/guilds/%s" guild-id)]
+    (api/discord-request auth endpoint :patch :json {:region new-region})))
