@@ -19,10 +19,12 @@
 (def channel-option-type 7)
 (def role-option-type 8)
 (def mentionable-option-type 9)
+(def number-option-type 10)
 
 (def option-types
   #{sub-command-option-type sub-command-group-option-type string-option-type integer-option-type
-    boolean-option-type user-option-type channel-option-type role-option-type mentionable-option-type})
+    boolean-option-type user-option-type channel-option-type role-option-type
+    mentionable-option-type number-option-type})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Defining slash commands
@@ -58,6 +60,7 @@
 (def channel-option     (partial command-option* channel-option-type))
 (def role-option        (partial command-option* role-option-type))
 (def mentionable-option (partial command-option* mentionable-option-type))
+(def number-option      (partial command-option* number-option-type))
 
 (defn command
   "Helper for defining a slash command."
