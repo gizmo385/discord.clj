@@ -34,3 +34,16 @@
   [auth guild-id new-region]
   (let [endpoint (format "/guilds/%s" guild-id)]
     (api/discord-request auth endpoint :patch :json {:region new-region})))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Modifying guilds
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn create-role
+  [auth guild-id role-name]
+  (let [endpoint (format "/guilds/%s/roles" guild-id)]
+    (api/discord-request auth endpoint :post :json {:name role-name :mentionable true})))
+
+(defn give-user-role
+  [auth guild-id user-id role-id]
+  (let [endpoint (format "/guilds/%s/members/%s/roles/%s" guild-id user-id role-id)]
+    (api/discord-request auth endpoint :put)))

@@ -2,18 +2,14 @@
   (:require
     [clojure.string :as s]
     [discord.api.guilds :as guilds-api]
-    [discord.extensions.core :as ext]
-    [discord.extensions.utils :as ext-utils]
     [discord.interactions.core :as i]
-    [discord.interactions.slash :as slash]
-    [discord.http :as http]
-    [discord.types :as types]
-    [taoensso.timbre :as timbre]))
+    [discord.interactions.slash :as slash]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Command tree definition
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (def voice-regions
+  "A list of available voice regions within Discord."
   ["us-west" "us-east" "us-south" "us-central" "eu-west" "eu-central" "singapore" "london" "sydney"
    "amsterdam" "frankfurt" "brazil"])
 

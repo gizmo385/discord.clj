@@ -2,8 +2,9 @@
   (:require
     [clojure.java.io :as io]
     [clojure.string :as s]
-    [discord.extensions.utils :as utils]
     [discord.config :as config]
+    [discord.extensions.utils :as utils]
+    [discord.interactions.slash :as slash]
     [taoensso.timbre :as timbre]))
 
 
@@ -18,6 +19,8 @@
   [full-command handler args])
 
 (defn command->invocation
+  "Given a prefix command and the modules (or trees of available commands), builds a command
+   invocation, which can be invoked to actually perform the command."
   [cmd modules]
   (letfn [(split-command->invocation [[next-command-element & rest-of-command] modules]
             (let [layer (get modules (keyword next-command-element))]
@@ -27,13 +30,23 @@
     (split-command->invocation (s/split cmd #"\s+") modules)))
 
 (defn execute-invocation
+  "Given a command invocation, the Discord gateway connection, and the message that contains the
+   command, executes that command by passing the gateway, message, and arguments to the command
+   handler."
   [invocation gateway message]
   (apply (:handler invocation) gateway message (:args invocation)))
 
-(defn prefix-command-tree [module-name & children]
+(defn prefix-command-tree
+  "Helper function for building nested command trees. The first argument is the name of the module or parent command"
+  [module-name & children]
   {module-name (apply merge children)})
 
 (defmacro prefix-command
+  "Convenience macro for building a prefix command. Input to this should look like:
+
+   (prefix-command
+    :command-name [arg1 arg2 arg3]
+    (println arg1 arg2 arg3))"
   [command & fn-tail]
   `(hash-map ~command (fn ~(symbol (format "command-invocation-%s" (name command))) ~@fn-tail)))
 
@@ -52,7 +65,9 @@
   [handler-fn]
   (swap! message-handlers conj handler-fn))
 
-(defn clear-handlers! []
+(defn clear-handlers!
+  "Remove any registered message handlers."
+  []
   (reset! message-handlers []))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -60,10 +75,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defonce installed-prefix-commands (atom {}))
 
-(defn reset-installed-prefix-commands! []
+(defn reset-installed-prefix-commands!
+  "Remove any registered prefix command handlers."
+  []
   (reset! installed-prefix-commands {}))
 
 (defn install-prefix-commands!
+  "Given a series of command modules, registers those modules and their commands for use in the bot."
   [& new-modules]
   (doseq [nm new-modules]
     (swap! installed-prefix-commands merge nm)))
@@ -92,7 +110,9 @@
            (catch Exception e
              (timbre/error e "Error while loading: %s" filename))))))
 
-(defn load-module-folders! []
+(defn load-module-folders!
+  "Loads all of the clojure files in the extension folders specified in the config."
+  []
   (doseq [folder (config/get-extension-folders)]
     (load-clojure-files-in-folder! folder))
   (let [installed-module-names (keys @installed-prefix-commands)]
@@ -108,14 +128,14 @@
 (declare register-builtins!)
 
 (defn reload-all-commands!
-  [gateway message]
   "Reload the configured extension folders."
+  [gateway message]
   ;; TODO: Check permissions of the user invoking the command
   (reset-installed-prefix-commands!)
   (clear-handlers!)
   (load-module-folders!)
   (register-builtins!)
-  ;(slash/register-global-commands! (types/configuration-auth))
+  (slash/register-global-commands! gateway)
   (utils/reply-in-channel gateway message "Successfully reloaded all extension folders."))
 
 (defn register-builtins! []

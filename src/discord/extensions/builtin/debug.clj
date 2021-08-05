@@ -1,10 +1,10 @@
 (ns discord.extensions.builtin.debug
+  "An extension for simple bot debugging functionality and things that might be useful to check via
+   a bot command or through the API."
   (:require
     [discord.api.guilds :as guilds-api]
     [discord.interactions.core :as i]
     [discord.interactions.slash :as slash]
-    [discord.extensions.core :as ext]
-    [discord.extensions.utils :as ext-utils]
     [discord.types.permissions :as perms]
     [discord.types.role :as roles]
     [discord.types.snowflake :as sf]

@@ -1,23 +1,25 @@
 (ns discord.api.base
+  "Implements the core REST API logic for the Discord API, including support for rate limiting. Calls
+   to specific APIs should be done in other namespaces."
   (:require
     [clj-http.client :as client]
     [clojure.data.json :as json]
-    [clojure.string :as s]
-    [discord.constants :as constants]
     [discord.types.auth :as a]
     [discord.types.snowflake :as sf]
-    [discord.utils :as utils]
     [overtone.at-at :as at]
     [slingshot.slingshot :refer [try+]]
     [taoensso.timbre :as timbre]))
 
+(defonce api-version 9)
+(defonce user-agent "discord.clj (https://github.com/gizmo385/discord.clj)")
+(defonce discord-url (format "https://discordapp.com/api/v%s" api-version))
 (defonce rate-limit-pool (at/mk-pool))
 
 (defn- build-request
   "Builds the API request based on the selected endpoint on the supplied arguments."
   [endpoint method auth json params]
-  (let  [url      (str constants/discord-url endpoint)
-         headers  {:User-Agent    constants/user-agent
+  (let  [url      (str discord-url endpoint)
+         headers  {:User-Agent    user-agent
                    :Authorization (format "%s %s" (a/token-type auth) (a/token auth))
                    :Accept        "application/json"}
          request  {:headers headers

@@ -28,20 +28,24 @@
 ;;; Defining slash commands
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn sub-command
+  "Defines a sub-command within the Discord Slash command context."
   [sub-command-name description & options]
   (cond-> {:name sub-command-name :description description :type sub-command-option-type}
     (some? options) (assoc :options options)))
 
 (defn sub-command-group
+  "Defines a group of sub commands within the Discord "
   [group-name description & sub-commands]
   (cond-> {:name group-name :description description :type sub-command-group-option-type}
     (some? sub-commands) (assoc :options sub-commands)))
 
 (defn option-choice
+  "Specify one option possible in a choice argument to a Slash command."
   [option-name value]
   {:name option-name :value value})
 
 (defn command-option*
+  "A helper function for defining command options."
   [option-type option-name description & {:keys [required? choices]
                                           :or {required? false}}]
   (cond-> {:name option-name :description description :type option-type :required required?}
@@ -56,6 +60,7 @@
 (def mentionable-option (partial command-option* mentionable-option-type))
 
 (defn command
+  "Helper for defining a slash command."
   [command-name description & options]
   {:name command-name
    :description description
@@ -71,10 +76,13 @@
   (atom {}))
 
 (defn register-globally-on-startup!
+  "Adds a slash command definition to the list of commands that will be registered with the Discord
+   API during bot startup."
   [& command-trees]
   (swap! global-commands-to-register-on-startup concat command-trees))
 
 (defn register-global-commands!
+  "Registers Discord-wide slash commands with the Discord API."
   [auth]
   (timbre/infof
     "Registering %s slash comands with Discord API" (count @global-commands-to-register-on-startup))
