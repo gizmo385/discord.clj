@@ -1,4 +1,4 @@
-(defproject discord.clj "2.0.0"
+(defproject discord.clj "3.0.0"
   :description "A library for creating Discord bots in Clojure."
   :url "https://github.com/gizmo385/discord.clj"
   :license {:name "Eclipse Public License"
@@ -11,7 +11,6 @@
                  [org.clojure/data.json "0.2.6"]
                  [overtone/at-at "1.2.0"]
                  [stylefruits/gniazdo "1.0.0"]
-                 [shutdown/shutdown  "0.1.0-SNAPSHOT"]
                  [integrant/integrant "0.8.0"]
                  [integrant/repl "0.3.2"]]
   :main ^:skip-aot discord.core
