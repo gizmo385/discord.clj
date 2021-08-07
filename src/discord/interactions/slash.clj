@@ -83,10 +83,10 @@
 
 (defn register-global-commands!
   "Registers Discord-wide slash commands with the Discord API."
-  [auth]
+  [auth config]
   (timbre/infof
     "Registering %s slash comands with Discord API" (count @global-commands-to-register-on-startup))
-  (if-let [application-id (config/get-application-id)]
+  (if-let [application-id (:application-id config)]
     (interactions-api/bulk-upsert-global-slash-commands
       auth application-id @global-commands-to-register-on-startup)
     (timbre/errorf "Couldn't find application ID!")))

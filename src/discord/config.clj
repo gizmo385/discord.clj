@@ -1,31 +1,28 @@
 (ns discord.config
-  (:require [clojure.data.json :as json]
-            [clojure.java.io :as io]
-            [integrant.core :as ig])
+  "This namespace manages the configuration of the bot, as well as functions for reading and managing
+   those configurations."
+  (:require
+    [clojure.tools.cli :refer [parse-opts]]
+    [clojure.data.json :as json]
+    [clojure.string :as s]
+    [clojure.java.io :as io]
+    [integrant.core :as ig]
+    [taoensso.timbre :as timbre])
   (:import [java.io IOException]))
 
-(defonce global-bot-settings "data/settings/settings.json")
-
-;;; Saving, loading, and checking config files
-(defmulti file-io
-  "Manages the saving and loading of file-io files.
-
-   Optional arguments per operation:
-    - :save
-      - data: The data that you wish to save to the file.
-   - :load
-      - :default: The value to be returned if data could not be loaded."
-  (fn [filename operation & {:keys [data default]}]
-    operation))
-
-(defmethod file-io :save [filename _ & {:keys [data]}]
-  (spit filename (json/write-str data)))
-
-(defmethod file-io :load [filename _ & {:keys [default]}]
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Reading, writing, and managing configuration files
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn load-json-file
+  [filename & {:keys [default]}]
   (try
     (json/read-str (slurp filename) :key-fn keyword)
     (catch IOException ioe
       (or default []))))
+
+(defn write-json-file
+  [filename data]
+  (spit filename (json/write-str data)))
 
 (defn file-exists?
   "Returns whether or not the specified filename exists on disk."
@@ -45,30 +42,68 @@
         (.mkdirs))
     (.createNewFile f)))
 
-(defmethod file-io :check [filename _]
-  (if-not (file-exists? filename)
+(defn ensure-file-exists [filename]
+  (when-not (file-exists? filename)
     (create-file filename)))
 
-(defn get-prefix
-  ([] (get-prefix global-bot-settings))
-  ([filename] (:prefix (file-io filename :load))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Defining the command line options
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn usage
+  [options-summary]
+  (->> ["Discord.clj Bot Library"
+        ""
+        "Options:"
+        options-summary]
+       (s/join \newline)))
 
-(defn get-bot-name
-  ([] (get-bot-name global-bot-settings))
-  ([filename] (:bot-name (file-io filename :load))))
+(defn print-and-exit
+  [message exit-status]
+  (println message)
+  (System/exit exit-status))
 
-(defn get-extension-folders
-  ([] (get-extension-folders global-bot-settings))
-  ([filename] (:extension-folders (file-io filename :load))))
+;;; Default values and validation constants
+(def default-bot-tokens-file-location "data/settings/settings.json")
+(def valid-log-levels #{:trace :debug :info :warn :error :fatal :report})
+(def builtin-extensions-folder "src/discord/extensions/builtin")
 
-(defn get-token
-  ([] (get-token global-bot-settings))
-  ([filename] (:token (file-io filename :load))))
+(def command-line-options
+  "Available command line options for the bot."
+  [["-f" "--tokens-filename" "The location for the file that has the bot token and application ID."
+    :default default-bot-tokens-file-location]
+   ["-p" "--prefix PREFIX" "The prefix for the bot."
+    :default "!"]
+   [nil "--[no-]include-builtin-extensions" "Load the builtin extensions."
+    :default true]
+   ["-l" "--logging-level LEVEL" "The level of debugging to enable"
+    :default :info
+    :parse-fn #(keyword %)
+    :validate [#(contains? valid-log-levels %)
+               (->> valid-log-levels
+                    (map name)
+                    (s/join ", ")
+                    (str "Valid log levels: ")) ]]
+   ["-e" "--extension-folder PATH" "A path to a folder of extensions to load."
+    :default []
+    :multi true
+    :id :extension-folders
+    :update-fn conj]
+   ["-h" "--help"]])
 
-(defn get-application-id
-  ([] (get-application-id global-bot-settings))
-  ([filename] (:application-id (file-io filename :load))))
+(defn parse-command-line-args []
+  (let [{:keys [options arguments errors summary]
+         :as parsed-options} (parse-opts *command-line-args* command-line-options)]
+    (cond
+      (:help options) (print-and-exit (usage summary) 0)
+      (not-empty errors) (print-and-exit (s/join \newline errors) 1)
+      :default options)))
 
 (defmethod ig/init-key :discord/config
-  [_ {:keys [filename]}]
-  (file-io filename :load))
+  [& _]
+  (let [options (parse-command-line-args)
+        extension-folders (cond-> (:extension-folders options)
+                            (:include-builtin-extensions options) (conj builtin-extensions-folder))
+        tokens (load-json-file (:tokens-filename options))]
+    (timbre/set-level! (:logging-level options))
+    (-> {:extension-folders extension-folders :prefix (:prefix options)}
+        (merge tokens))))

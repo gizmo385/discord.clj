@@ -48,9 +48,9 @@
   (let [handlers (atom [])
         prefix (:prefix config)
         bot (->Bot config gateway handlers) ]
-    (ext/load-module-folders!)
+    (ext/load-module-folders! config)
     (ext/register-builtins!)
-    (slash/register-global-commands! (:auth gateway))
+    (slash/register-global-commands! (:auth gateway) config)
 
     (go-loop []
       (when-let [message (<! (get-in gateway [:metadata :recv-chan]))]

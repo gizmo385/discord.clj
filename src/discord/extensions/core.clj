@@ -115,8 +115,8 @@
 
 (defn load-module-folders!
   "Loads all of the clojure files in the extension folders specified in the config."
-  []
-  (doseq [folder (config/get-extension-folders)]
+  [config]
+  (doseq [folder (:extension-folders config)]
     (load-clojure-files-in-folder! folder))
   (let [installed-module-names (keys @installed-prefix-commands)]
     (timbre/infof "Loaded %d extensions: %s."
@@ -136,9 +136,9 @@
   ;; TODO: Check permissions of the user invoking the command
   (reset-installed-prefix-commands!)
   (clear-handlers!)
-  (load-module-folders!)
+  (load-module-folders! (:config gateway))
   (register-builtins!)
-  (slash/register-global-commands! gateway)
+  (slash/register-global-commands! gateway (:config gateway))
   (utils/reply-in-channel gateway message "Successfully reloaded all extension folders."))
 
 (defn register-builtins! []

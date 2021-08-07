@@ -1,6 +1,6 @@
 {
  ;; Configuration and API authentication information
- :discord/config                {:filename "data/settings/settings.json"}
+ :discord/config                {}
  :discord/auth                  {:config #ig/ref :discord/config}
 
  ;; Information that is related to controling the Discord Gateway connection
@@ -13,7 +13,8 @@
                                  :message-handler-fn #ig/ref :discord/message-handler-fn}
  :discord/gateway-connection    {:auth #ig/ref :discord/auth
                                  :metadata #ig/ref :discord/gateway-metadata
-                                 :websocket #ig/ref :discord/websocket}
+                                 :websocket #ig/ref :discord/websocket
+                                 :config #ig/ref :discord/config}
  :discord/bot                   {:config #ig/ref :discord/config
                                  :gateway #ig/ref :discord/gateway-connection}
  }
