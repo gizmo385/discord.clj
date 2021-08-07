@@ -1,4 +1,7 @@
 (ns discord.extensions.core
+  "This namespace implements the core definition, routing, and handling of message content based
+   bot functionality, including prefix commands (eg: `!command`) and direct message handling, like
+   might be necessary for a bot blocking foul words or handling aliases."
   (:require
     [clojure.java.io :as io]
     [clojure.string :as s]

@@ -1,4 +1,6 @@
-(ns discord.types.permissions)
+(ns discord.types.permissions
+  "Describes the permissions that a user might have within the Discord API and includes convenience
+   functions for determining if a user has those permissions.")
 
 (def permission-values
   "These are the permissions and bitwise permission flags as documented in the Discord developer

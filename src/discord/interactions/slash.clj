@@ -132,6 +132,10 @@
     interaction))
 
 (defmulti handle-slash-command-interaction
+  "Multi-method for providing the implementation of slash commands. This method dispatches based on
+   the full command path. So, for example, if you are implementing a slash command such as
+   `/clubs manage add <club-name>`, then the implementation of that slash command would be handled
+   by a defmethod whose dispatch value is `[:clubs :manage :add]`"
   (fn [invocation auth gateway] (:command-path invocation)))
 
 (defmethod handle-slash-command-interaction :default

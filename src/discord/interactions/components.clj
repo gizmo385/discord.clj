@@ -1,4 +1,6 @@
 (ns discord.interactions.components
+  "This namespace handles the definition and handling of component-based interactions within Discord,
+   which includes functionality such as buttons and select menus."
   (:require [discord.interactions.core :as i]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -66,12 +68,23 @@
 ;;; Select components
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn menu-option
+  "Defines a particular option within a select menu, with a label displayed to the user and a value.
+
+   Optional parameters:
+   - :description: The description of the option within the menu and its purpose.
+   - :default?: If true, will render this option as selected by default."
   [label value & {:keys [description default?]}]
   (cond-> {:label label :value value}
     (some? description) (assoc :description description)
     (some? default?) (assoc :default default?)))
 
 (defn select-menu
+  "Defines a select menu component, with a series of options that can be selected by the user.
+
+   Optional parameters:
+   - :placeholder-text: This is the text that will show up on the menu when nothing is selected.
+   - :select-min: The minimum number of options (0 - 25) that can be selected. Default: 1.
+   - :select-max: The maximum number of options (0 - 25) that can be selected. Default: 1."
   [custom-id options & {:keys [placeholder-text select-min select-max]}]
   (cond-> {:type select-menu-component-type :custom_id custom-id :options options}
     (some? placeholder-text) (assoc :placeholder placeholder-text)
@@ -89,10 +102,12 @@
 ;;; indirection and determing.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defmulti handle-menu-selection
+  "Handles an interaction in which a user made selections on a select menu component in a message."
   (fn [original-message gateway custom-id selected-values]
     (keyword custom-id)))
 
 (defmulti handle-button-press
+  "Handles an interaction in which a user clicked on a button component in a message."
   (fn [original-message gateway custom-id]
     (keyword custom-id)))
 
@@ -100,6 +115,10 @@
 ;; Different component interactions supply different information, so we want to make that explicit
 ;; to users of the library.
 (defmulti handle-message-component-interaction
+  "Handles an interaction from a user related to a particualr message component. This dispatches to
+   other methods which are more specific to the _kind_ of message component that was interacted with,
+   such as a button or a menu selection. This method dispatches based on the kind of component that
+   was interacted with."
   (fn [original-message gateway data]
     (:component_type data)))
 
