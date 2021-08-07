@@ -8,5 +8,5 @@ WORKDIR /home/bot/app
 
 # Build a jar and execute that
 COPY --chown=bot . .
-RUN clojure -Xuberjar
+RUN lein uberjar
 CMD java -jar target/bot.jar

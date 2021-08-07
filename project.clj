@@ -13,7 +13,10 @@
                  [overtone/at-at "1.2.0"]
                  [stylefruits/gniazdo "1.0.0"]
                  [integrant/integrant "0.8.0"]
-                 [integrant/repl "0.3.2"]]
+                 [integrant/repl "0.3.2"]
+                 [nrepl/nrepl "0.8.3"]]
   :main ^:skip-aot discord.core
   :target-path "target/%s"
-  :profiles {:uberjar {:aot :all}})
+  :source-paths ["src" "dev"]
+  :profiles {:uberjar {:aot :all}
+             :examples {:source-paths ["examples"]}})

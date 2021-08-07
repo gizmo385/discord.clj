@@ -37,3 +37,5 @@ Sessionx.vim
 tags
 # Persistent undo
 [._]*.un~
+node_modules
+package-lock.json
