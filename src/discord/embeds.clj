@@ -1,4 +1,6 @@
 (ns discord.embeds
+  "This namespace contains functions to facilitate the creation of Embeds, which allow for richer
+   messages to be sent by the bot to users."
   (:require [clj-time.format :as f]
             [clj-time.coerce :as c]))
 
