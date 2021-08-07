@@ -6,6 +6,8 @@
     [integrant.core :as ig])
   (:gen-class))
 
+(def integrant-config-file "resources/integrant-config.edn")
+
 (defn -main
   [& args]
-  (-> "resources/config.edn" slurp ig/read-string ig/init))
+  (-> integrant-config-file slurp ig/read-string ig/init))

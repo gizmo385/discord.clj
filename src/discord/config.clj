@@ -2,10 +2,9 @@
   "This namespace manages the configuration of the bot, as well as functions for reading and managing
    those configurations."
   (:require
-    [clojure.tools.cli :refer [parse-opts]]
-    [clojure.data.json :as json]
+    [clojure.edn :as edn]
     [clojure.string :as s]
-    [clojure.java.io :as io]
+    [clojure.tools.cli :refer [parse-opts]]
     [integrant.core :as ig]
     [taoensso.timbre :as timbre])
   (:import [java.io IOException]))
@@ -13,38 +12,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Reading, writing, and managing configuration files
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn load-json-file
-  [filename & {:keys [default]}]
+(defn load-bot-config
+  [filename]
   (try
-    (json/read-str (slurp filename) :key-fn keyword)
+    (edn/read-string (slurp filename))
     (catch IOException ioe
-      (or default []))))
-
-(defn write-json-file
-  [filename data]
-  (spit filename (json/write-str data)))
-
-(defn file-exists?
-  "Returns whether or not the specified filename exists on disk."
-  [filename]
-  (-> filename
-      (io/as-file)
-      (.exists)))
-
-(defn create-file
-  "Creates the file specified by the filename. Also creates all necessary parent directories."
-  [filename]
-  (let [f (io/as-file filename)]
-    (-> f
-        (.getParentFile)
-        (.getAbsolutePath)
-        (io/file)
-        (.mkdirs))
-    (.createNewFile f)))
-
-(defn ensure-file-exists [filename]
-  (when-not (file-exists? filename)
-    (create-file filename)))
+      (throw (ex-info "Error loading bot config!" {:config-file filename})))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Defining the command line options
@@ -63,14 +36,14 @@
   (System/exit exit-status))
 
 ;;; Default values and validation constants
-(def default-bot-tokens-file-location "data/settings/settings.json")
+(def default-bot-settings-file-location "resources/bot-config.edn")
 (def valid-log-levels #{:trace :debug :info :warn :error :fatal :report})
 (def builtin-extensions-folder "src/discord/extensions/builtin")
 
 (def command-line-options
   "Available command line options for the bot."
-  [["-f" "--tokens-filename" "The location for the file that has the bot token and application ID."
-    :default default-bot-tokens-file-location]
+  [["-f" "--settings-filename" "The location for the file that has the core bot settings."
+    :default default-bot-settings-file-location]
    ["-p" "--prefix PREFIX" "The prefix for the bot."
     :default "!"]
    [nil "--[no-]include-builtin-extensions" "Load the builtin extensions."
@@ -103,7 +76,7 @@
   (let [options (parse-command-line-args)
         extension-folders (cond-> (:extension-folders options)
                             (:include-builtin-extensions options) (conj builtin-extensions-folder))
-        tokens (load-json-file (:tokens-filename options))]
+        settings (load-bot-config (:settings-filename options))]
     (timbre/set-level! (:logging-level options))
     (-> {:extension-folders extension-folders :prefix (:prefix options)}
-        (merge tokens))))
+        (merge settings))))

@@ -2,9 +2,7 @@
  ;; Configuration and API authentication information
  :discord/config                {}
  :discord/auth                  {:config #ig/ref :discord/config}
-
- ;; Information that is related to controling the Discord Gateway connection
- :discord/gateway-metadata      {:intents [:guilds :guild-messages :direct-messages]}
+ :discord/gateway-metadata      {:config #ig/ref :discord/config}
 
  :discord/message-handler-fn    {:auth #ig/ref :discord/auth
                                  :config #ig/ref :discord/config
@@ -16,5 +14,4 @@
                                  :websocket #ig/ref :discord/websocket
                                  :config #ig/ref :discord/config}
  :discord/bot                   {:config #ig/ref :discord/config
-                                 :gateway #ig/ref :discord/gateway-connection}
- }
+                                 :gateway #ig/ref :discord/gateway-connection}}

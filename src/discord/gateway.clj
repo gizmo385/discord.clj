@@ -41,7 +41,7 @@
                                 desired-intents))]
     (if (contains? intent-values -1)
       (throw (ex-info "Invalid intent supplied." {:valid-intents gateway-intents
-                                                  :desired-intents desired-intents}))
+                                                  :supplied-intents desired-intents}))
       (->> intent-values
            (map (fn [iv] (bit-shift-left 1 iv)))
            (reduce +)))))
@@ -61,6 +61,7 @@
 (defn send-gateway-message
   [gateway message]
   (let [formatted-message (json/write-str message)]
+    (timbre/tracef "Sending message to gateway: %s" formatted-message)
     (ws/send-msg (:websocket gateway) formatted-message)))
 
 (defn send-heartbeat [gateway]
@@ -72,14 +73,14 @@
 (defn send-identify
   "Sends an identification message to the supplied Gateway. This tells the Discord gateway
    information about ourselves."
-  [gateway intents]
+  [gateway]
   (->> {:token (a/token gateway)
         :properties {"$os" (System/getProperty "os.name")
                      "$browser" "discord.clj"
                      "$device" "discord.clj"}
         :compress false
         :large_threshold 250
-        :intents intents}
+        :intents (get-in gateway [:config :intents])}
        (format-gateway-message :identify)
        (send-gateway-message gateway)))
 
@@ -148,8 +149,10 @@
 ;;; Connecting to the gateway and handling basic interactions with it
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defmethod ig/init-key :discord/gateway-metadata
-  [_ {:keys [intents]}]
-  (let [intents-value (intent-names->intent-value intents)]
+  [_ {:keys [config]}]
+  (let [intents (:intents config)
+        intents-value (intent-names->intent-value intents)]
+    (timbre/debugf "Gateway intents value: %s (%s)" intents-value intents)
     {:heartbeat-interval (atom nil)
      :intents-value intents-value
      :intent-names intents
@@ -190,7 +193,7 @@
   (let [gateway (->GatewayV2 auth metadata websocket)]
     ;; We'll send our initial heartbeat and identification events
     (send-heartbeat gateway)
-    (send-identify gateway (:intents-value metadata))
+    (send-identify gateway)
 
     ;; Then we'll kick off a persistent loop in the background, which is sending the heartbeat.
     (go-loop []
