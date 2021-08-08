@@ -1,4 +1,4 @@
-(ns examples.echo-prefix.core
+(ns echo-prefix.core
   (:require
     [discord.extensions.core :as ext]
     [discord.extensions.utils :as ext-utils]))
