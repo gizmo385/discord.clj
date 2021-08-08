@@ -18,5 +18,6 @@
   :main ^:skip-aot discord.core
   :target-path "target/%s"
   :source-paths ["src" "dev"]
+  :repl-options {:init-ns user}
   :profiles {:uberjar {:aot :all}
              :examples {:source-paths ["examples"]}})
