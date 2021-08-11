@@ -142,7 +142,7 @@
 
 (defmethod handle-gateway-event :MESSAGE_CREATE
   [message auth metadata]
-  (timbre/infof "Received user message: %s" message)
+  (timbre/debugf "Received user message: %s" message)
   (go (->> message :d messages/build-message (>! (:recv-chan metadata)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
