@@ -134,11 +134,11 @@
 
 (defmethod handle-gateway-event :HELLO
   [message auth metadata]
-  (timbre/info "Received 'HELLO' Discord event."))
+  (timbre/debug "Received 'HELLO' Discord event."))
 
 (defmethod handle-gateway-event :default
   [message auth metadata]
-  (timbre/infof "Unknown message of type %s received." (keyword (:t message))))
+  (timbre/debugf "Unknown message of type %s received." (keyword (:t message))))
 
 (defmethod handle-gateway-event :MESSAGE_CREATE
   [message auth metadata]
