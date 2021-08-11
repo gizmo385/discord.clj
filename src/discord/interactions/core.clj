@@ -1,7 +1,8 @@
 (ns discord.interactions.core
   "This namespace implements the core routing and response functionality for handling interactions
    within Discord. Functions and implementations for handling specific kinds of interactions are
-   delegated to other namespaces, such as `discord.interactions.slash` for slash commands."
+   delegated to other namespaces, such as `discord.interactions.commands` for various kinds of
+   application commands (eg: slash commands)."
   (:require
     [clojure.data.json :as json]
     [discord.gateway :as gw]
@@ -11,7 +12,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Defining some constants from the developer documentation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(def slash-command-interaction 2)
+(def command-interaction 2)
 (def message-component-interaction 3)
 
 (def channel-update-with-source-response 4)

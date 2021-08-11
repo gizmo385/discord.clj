@@ -6,7 +6,7 @@
     [discord.types.auth :as a]
     [discord.extensions.core :as ext]
     [discord.extensions.utils :as ext-utils]
-    [discord.interactions.slash :as slash]
+    [discord.interactions.commands :as cmds]
     [integrant.core :as ig]
     [taoensso.timbre :as timbre]))
 
@@ -50,7 +50,7 @@
         bot (->Bot config gateway handlers) ]
     (ext/load-module-folders! config)
     (ext/register-builtins!)
-    (slash/register-global-commands! (:auth gateway) config)
+    (cmds/register-global-commands! (:auth gateway) config)
 
     (go-loop []
       (when-let [message (<! (get-in gateway [:metadata :recv-chan]))]

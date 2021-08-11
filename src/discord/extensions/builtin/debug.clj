@@ -4,7 +4,7 @@
   (:require
     [discord.api.guilds :as guilds-api]
     [discord.interactions.core :as i]
-    [discord.interactions.slash :as slash]
+    [discord.interactions.commands :as cmds]
     [discord.types.permissions :as perms]
     [discord.types.role :as roles]
     [discord.types.snowflake :as sf]
@@ -13,15 +13,16 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Slash command definitions
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(slash/register-globally-on-startup!
-  (slash/command
+(cmds/register-globally-on-startup!
+  (cmds/user-command "Account Tenure")
+  (cmds/slash-command
     :debug "Debugging information"
-    (slash/sub-command
+    (cmds/sub-command
       :get-permissions "Retrieve permissions for yourself or the mentioned user."
-      (slash/user-option :user "The user whose permissions you want to check."))
-    (slash/sub-command
+      (cmds/user-option :user "The user whose permissions you want to check."))
+    (cmds/sub-command
       :account-creation-date "Determine the account creation date for yourself or the mentioend user."
-      (slash/user-option :user "The user whose account creation date you want to check."))))
+      (cmds/user-option :user "The user whose account creation date you want to check."))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Debugging user permissions
@@ -53,7 +54,7 @@
         user-permissions (determine-user-permissions user-roles guild-roles)]
     (permission-map->embed user-permissions)))
 
-(defmethod slash/handle-slash-command-interaction [:debug :get-permissions]
+(defmethod cmds/handle-slash-command-interaction [:debug :get-permissions]
   [{:keys [interaction arguments]} auth metadata]
   (if-let [guild-id (:guild-id interaction)]
     (let [user-id (or (:user arguments)
@@ -71,10 +72,17 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Determining when a user's account was created
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defmethod slash/handle-slash-command-interaction [:debug :account-creation-date]
+(defmethod cmds/handle-slash-command-interaction [:debug :account-creation-date]
   [{:keys [interaction arguments]} auth _]
   (let [user-id (or (:user arguments)
                     (i/interaction->user-id interaction))
+        creation-timestamp (quot (sf/snowflake->timestamp user-id) 1000)
+        message (format "Account for <@%s> created at <t:%s:F>" user-id creation-timestamp)]
+    (i/channel-message-response interaction auth message nil nil)))
+
+(defmethod cmds/handle-user-command-interaction "Account Tenure"
+  [{:keys [interaction]} auth _]
+  (let [user-id (get-in interaction [:data :target_id])
         creation-timestamp (quot (sf/snowflake->timestamp user-id) 1000)
         message (format "Account for <@%s> created at <t:%s:F>" user-id creation-timestamp)]
     (i/channel-message-response interaction auth message nil nil)))

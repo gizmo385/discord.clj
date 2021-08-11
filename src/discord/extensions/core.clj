@@ -7,7 +7,7 @@
     [clojure.string :as s]
     [discord.config :as config]
     [discord.extensions.utils :as utils]
-    [discord.interactions.slash :as slash]
+    [discord.interactions.commands :as cmds]
     [taoensso.timbre :as timbre]))
 
 
@@ -138,7 +138,7 @@
   (clear-handlers!)
   (load-module-folders! (:config gateway))
   (register-builtins!)
-  (slash/register-global-commands! gateway (:config gateway))
+  (cmds/register-global-commands! gateway (:config gateway))
   (utils/reply-in-channel gateway message "Successfully reloaded all extension folders."))
 
 (defn register-builtins! []

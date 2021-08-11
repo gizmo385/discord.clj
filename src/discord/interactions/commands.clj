@@ -1,4 +1,4 @@
-(ns discord.interactions.slash
+(ns discord.interactions.commands
   (:require
     [clojure.walk :as w]
     [discord.config :as config]
@@ -10,6 +10,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Constants defined in the developer documentation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(def chat-input-command-type 1)
+(def user-command-type 2)
+(def message-command-type 3)
+
+(def command-types #{chat-input-command-type user-command-type message-command-type})
+
 (def sub-command-option-type 1)
 (def sub-command-group-option-type 2)
 (def string-option-type 3)
@@ -62,12 +68,23 @@
 (def mentionable-option (partial command-option* mentionable-option-type))
 (def number-option      (partial command-option* number-option-type))
 
-(defn command
+(defn slash-command
   "Helper for defining a slash command."
   [command-name description & options]
   {:name command-name
    :description description
-   :options options})
+   :options options
+   :type chat-input-command-type})
+
+(defn user-command
+  "Defines a new user command, that displays when right-clicking on a user"
+  [command-name]
+  {:name command-name :type user-command-type})
+
+(defn message-command
+  "Definse a new message command, that displays when right-clicking on a message"
+  [command-name]
+  {:name command-name :type message-command-type})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Command registeration with the Discord APIs
@@ -97,10 +114,10 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Handling slash command interactions
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defrecord SlashCommandInvocation
-  [command-path arguments interaction])
+(defrecord CommandInvocation
+  [command-type command-name full-command-path arguments interaction])
 
-(defn interaction->command-list
+(defn interaction->full-command-path
   "Given a slash command interaction, returns a vector representing the executed command.
 
    For example, if `/groups edit add` were executed as a command, the result of this function would
@@ -110,27 +127,30 @@
             (or (nil? (:type c))
                 (contains? #{sub-command-option-type sub-command-group-option-type}
                            (:type c))))]
-    (->> interaction
-         (tree-seq map? :options)
-         (filter nested-command?)
-         (map :name)
-         (map keyword)
-         (into []))))
+    (some->> interaction
+      (tree-seq map? :options)
+      (filter nested-command?)
+      (map :name)
+      (map keyword)
+      (into []))))
 
 (defn interaction->argument-map
   "Given an interaction, traverses the command tree and retrieves the arguments supplied to the
    command and returns those arguments as a mapping from the keywordized argument name to the
    supplied value of the argument."
   [interaction]
-  (let [arguments (flatten (w/postwalk (fn [s] (or (:options s) s)) interaction))]
-    (zipmap (map (comp keyword :name) arguments) (map :value arguments))))
+  (if-let [arguments (flatten (w/postwalk (fn [s] (or (:options s) s)) interaction))]
+    (zipmap (map (comp keyword :name) arguments)
+            (map :value arguments))))
 
-(defn interaction->slash-command-invocation
+(defn interaction->command-invocation
   "Parses the command and arguments from a slash command interaction and returns a
-   SlashCommandInvocation record instance."
+   CommandInvocation record instance."
   [interaction]
-  (->SlashCommandInvocation
-    (interaction->command-list (:data interaction))
+  (->CommandInvocation
+    (get-in interaction [:data :type])
+    (get-in interaction [:data :name])
+    (interaction->full-command-path (:data interaction))
     (interaction->argument-map (:data interaction))
     interaction))
 
@@ -139,13 +159,37 @@
    the full command path. So, for example, if you are implementing a slash command such as
    `/clubs manage add <club-name>`, then the implementation of that slash command would be handled
    by a defmethod whose dispatch value is `[:clubs :manage :add]`"
-  (fn [invocation auth gateway] (:command-path invocation)))
+  (fn [invocation auth gateway] (:full-command-path invocation)))
 
 (defmethod handle-slash-command-interaction :default
   [invocation auth gateway]
-  (timbre/errorf "Unhandled slash command: %s" (:command-path invocation)))
+  (timbre/errorf "Unhandled slash command: %s" (:full-command-path invocation)))
 
-(defmethod i/handle-interaction i/slash-command-interaction
+
+(defmulti handle-user-command-interaction
+  "Multi-method for providing the implementation of a user command, which can occur when a user
+   right clicks on a user."
+  (fn [invocation auth gateway] (:command-name invocation)))
+
+(defmethod handle-user-command-interaction :default
+  [invocation auth gateway]
+  (timbre/errorf "Unhandled user command: %s - %s" (:command-name invocation) {:invocation invocation}))
+
+(defmulti handle-message-command-interaction
+  "Multi-method for providing the implementation of a message command, which can occur when a user
+   right clicks on a message"
+  (fn [invocation auth gateway] (:command-name invocation)))
+
+(defmethod handle-message-command-interaction :default
+  [invocation auth gateway]
+  (timbre/errorf "Unhandled message command: %s - %s" (:command-name invocation) {:invocation invocation}))
+
+(defmethod i/handle-interaction i/command-interaction
   [command-interaction auth metadata]
-  (let [invocation (interaction->slash-command-invocation command-interaction)]
-    (handle-slash-command-interaction invocation auth metadata)))
+  (let [invocation (interaction->command-invocation command-interaction)]
+    (condp = (:command-type invocation)
+      chat-input-command-type (handle-slash-command-interaction invocation auth metadata)
+      message-command-type (handle-message-command-interaction invocation auth metadata)
+      user-command-type (handle-user-command-interaction invocation auth metadata)
+      (throw (ex-info "Unsupported command interaction type! This is likely a discord.clj problem"
+                      {:invocation invocation})))))
