@@ -2,22 +2,23 @@
   (:require
     [clojure.string :as s]
     [discord.interactions.core :as i]
-    [discord.interactions.slash :as slash]))
+    [discord.interactions.commands :as cmds]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Defining the slash command interface
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(slash/register-globally-on-startup!
-  (slash/command
+(cmds/register-globally-on-startup!
+  (cmds/user-command "Get Karma")
+  (cmds/slash-command
     :karma "Manage a simple karma system in your server!"
-    (slash/sub-command
+    (cmds/sub-command
       :get "Get a user's karma"
-      (slash/user-option :user "A user to retrieve Karma for."))
-    (slash/sub-command
+      (cmds/user-option :user "A user to retrieve Karma for."))
+    (cmds/sub-command
       :add "Give a user karma"
-      (slash/user-option :user "The user to give karma to" :required? true)
-      (slash/integer-option :amount "The amount of karma to give" :required? true))
-    (slash/sub-command :top "See the top-10 karma users")))
+      (cmds/user-option :user "The user to give karma to" :required? true)
+      (cmds/integer-option :amount "The amount of karma to give" :required? true))
+    (cmds/sub-command :top "See the top-10 karma users")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Defining the karma system
@@ -26,7 +27,7 @@
 (def max-karma 5)
 (def nice-try-gif-url "https://media.giphy.com/media/3o7aTpVyQCkQKfekVy/giphy.gif")
 
-(defmethod slash/handle-slash-command-interaction [:karma :get]
+(defmethod cmds/handle-slash-command-interaction [:karma :get]
   [{:keys [interaction arguments]} auth _]
   (let [guild-id (:guild-id interaction)
         user-id (or (:user arguments) (i/interaction->user-id interaction))]
@@ -34,7 +35,7 @@
       (i/channel-message-response interaction auth (format "<@%s> has `%s` karma!" user-id karma))
       (i/channel-message-response interaction auth (format "<@%s> has no karma!" user-id)))))
 
-(defmethod slash/handle-slash-command-interaction [:karma :add]
+(defmethod cmds/handle-slash-command-interaction [:karma :add]
   [{:keys [interaction arguments]} auth _]
   (let [guild-id (:guild-id interaction)
         amount (:amount arguments)
@@ -60,7 +61,7 @@
           auth
           (format "<@%s> gave %s karma to <@%s>!" sender-user-id amount recipient-user-id))))))
 
-(defmethod slash/handle-slash-command-interaction [:karma :top]
+(defmethod cmds/handle-slash-command-interaction [:karma :top]
   [{:keys [interaction]} auth _]
   (let [guild-id (:guild-id interaction) ]
     (->> guild-id
@@ -71,3 +72,11 @@
          (map (fn [[u k]] (format "<@%s> - %s" u k)))
          (s/join \newline)
          (i/channel-message-response interaction auth))))
+
+(defmethod cmds/handle-user-command-interaction "Get Karma"
+  [{:keys [interaction]} auth _]
+  (let [guild-id (:guild-id interaction)
+        user-id (get-in interaction [:data :target_id])]
+    (if-let [karma (get-in @karma-store [guild-id user-id])]
+      (i/channel-message-response interaction auth (format "<@%s> has `%s` karma!" user-id karma))
+      (i/channel-message-response interaction auth (format "<@%s> has no karma!" user-id)))))
