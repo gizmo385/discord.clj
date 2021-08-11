@@ -1,5 +1,7 @@
 # discord.clj
 
+**IMPORTANT NOTE**: Most new development on this project is happening on the [version 3.0 branch](https://github.com/gizmo385/discord.clj/tree/version3.0), which has support for interactions (slash commands, user/message commands) as well as message components. However, that branch does include a large number of changes that I believe simplify the library overall, but are indeed breaking changes for existing extensions.
+
 [![Clojars Project](https://img.shields.io/clojars/v/discord.clj.svg)](https://clojars.org/discord.clj)
 
 discord.clj is a [Clojure](https://clojure.org/) wrapper around the [Discord
