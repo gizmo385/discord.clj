@@ -62,7 +62,7 @@
   [gateway message]
   (let [formatted-message (json/write-str message)]
     (timbre/tracef "Sending message to gateway: %s" formatted-message)
-    (ws/send-msg (:websocket gateway) formatted-message)))
+    (ws/send-msg (deref (:websocket gateway)) formatted-message)))
 
 (defn send-heartbeat [gateway]
   (let [seq-num (get-in gateway [:metadata :seq-num])
@@ -83,6 +83,14 @@
         :intents (get-in gateway [:config :intents])}
        (format-gateway-message :identify)
        (send-gateway-message gateway)))
+
+(defn send-resume
+  [token websocket session-id seq-num]
+  (->> {:token token
+        :session_id session-id
+        :seq seq-num}
+       (format-gateway-message :resume)
+       (ws/send-msg websocket)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Gateway Control Management
@@ -174,19 +182,44 @@
       ;; Pass the message on to the handler
       (handle-gateway-event message auth metadata))))
 
-(defmethod ig/init-key :discord/websocket
-  [_ {:keys [auth message-handler-fn]}]
-  (let [gateway-url (misc/get-bot-gateway-url auth)]
+
+(declare connect-websocket)
+
+(defn should-reconnect?
+  [close-code]
+  (nil? (some #{close-code} #{1000 4004 4010 4011 4012 4013 4014})))
+
+(defn connect-websocket!
+  "Create a websocket to connect to the specified gateway URL and handle messages with the supplied
+   message handler function."
+  [auth metadata websocket-atom gateway-url message-handler-fn]
+  (reset!
+    websocket-atom
     (ws/connect
       gateway-url
       :on-receive message-handler-fn
       :on-connect (fn [message] (timbre/infof "Connected to Discord Gateway (%s)" gateway-url))
-      :on-error   (fn [message] (timbre/errorf "Error: %s" message)))))
+      :on-error   (fn [message] (timbre/errorf "Error: %s" message))
+      :on-close   (fn [status message]
+                    (when (should-reconnect? status)
+                      (connect-websocket!
+                        auth metadata websocket-atom gateway-url message-handler-fn)
+                      (send-resume (a/token auth)
+                                   @websocket-atom
+                                   @(:session-id metadata)
+                                   @(:seq-num metadata)))))))
+
+(defmethod ig/init-key :discord/websocket
+  [_ {:keys [auth gateway-metadata message-handler-fn]}]
+  (let [gateway-url (misc/get-bot-gateway-url auth)
+        websocket-atom (atom nil)]
+    (connect-websocket! auth gateway-metadata websocket-atom gateway-url message-handler-fn)
+    websocket-atom))
 
 (defmethod ig/halt-key! :discord/websocket
   [_ websocket]
   (timbre/infof "Closing websocket connection due to integrant halt!")
-  (ws/close websocket))
+  (ws/close (deref websocket)))
 
 (defmethod ig/init-key :discord/gateway-connection
   [_ {:keys [auth metadata websocket]}]

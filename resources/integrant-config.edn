@@ -8,6 +8,7 @@
                                  :config #ig/ref :discord/config
                                  :metadata #ig/ref :discord/gateway-metadata}
  :discord/websocket             {:auth #ig/ref :discord/auth
+                                 :gateway-metadata #ig/ref :discord/gateway-metadata
                                  :message-handler-fn #ig/ref :discord/message-handler-fn}
  :discord/gateway-connection    {:auth #ig/ref :discord/auth
                                  :metadata #ig/ref :discord/gateway-metadata
