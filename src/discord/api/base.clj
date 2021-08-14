@@ -79,7 +79,7 @@
       (catch [:status 429] {:keys [body]}
         (let [rate-limit-info (json/read-str body)
               wait-time       (get rate-limit-info "retry_after")]
-          (timbre/info (format "Rate limited by API, waiting for %d milliseconds." wait-time))
+          (timbre/infof "Rate limited by API, waiting for %s milliseconds." wait-time)
           (at/after wait-time #(send-api-request request constructor) rate-limit-pool)))
 
       ;; Log any other errors that we encounter

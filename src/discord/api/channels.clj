@@ -21,3 +21,9 @@
   [auth message]
   (let [endpoint (format "/channels/%s/messages/%s" (:channel-id message) (:id message))]
     (api/discord-request auth endpoint :delete)))
+
+(defn create-reaction
+  [auth channel-id message-id emoji]
+  (let [endpoint (format "/channels/%s/messages/%s/reactions/%s:%s/@me"
+                         channel-id message-id (:name emoji) (:id emoji))]
+    (api/discord-request auth endpoint :put)))

@@ -4,6 +4,9 @@
     [discord.types.user :as user]
     [discord.types.guild :as guild]))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Standard messages
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (def message-types
   [:default :recipient-add :recipient-remove :call :channel-name-change :channel-icon-change
    :channel-pinned-message :guild-member-join :user-premium-guild-subscription
@@ -29,3 +32,23 @@
         (update :author user/build-user)
         (update :type message-types)
         (map->Message))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Reactions to messages
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defrecord Emoji [id name])
+(defn build-emoji
+  "Helper function for converting a potentially nil map into an Emoji record."
+  [m]
+  (some-> m map->Emoji))
+
+(defrecord MessageReaction [user-id message-id channel-id emoji])
+(defn build-message-reaction
+  [m]
+  (some-> m
+          (rename-keys {:user_id :user-id
+                        :message_id :message-id
+                        :channel_id :channel-id})
+          (update :emoji build-emoji)
+          (map->MessageReaction)))

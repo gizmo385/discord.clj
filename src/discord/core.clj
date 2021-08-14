@@ -3,6 +3,7 @@
   (:require
     ;; We import this to ensure the ig/init defmethod is evaluated.
     [discord.bot :as bot]
+    [discord.extensions.reactions :as r] ;; TMP
     [integrant.core :as ig])
   (:gen-class))
 
