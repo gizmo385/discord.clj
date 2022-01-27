@@ -12,7 +12,7 @@
 ;;; We don't actually need to do anything here
 (defmethod handle-message-reaction-by-name :default
   [reaction _]
-  (timbre/tracef "Ignoring message reaction: %s" reaction))
+  (timbre/debugf "Ignoring message reaction: %s" reaction))
 
 
 (defmethod gw/handle-gateway-event :MESSAGE_REACTION_ADD

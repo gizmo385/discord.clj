@@ -51,7 +51,7 @@
    ["-l" "--logging-level LEVEL" "The level of debugging to enable"
     :default :info
     :parse-fn #(keyword %)
-    :validate [#(contains? valid-log-levels %)
+    #_#_:validate [#(contains? valid-log-levels %)
                (->> valid-log-levels
                     (map name)
                     (s/join ", ")

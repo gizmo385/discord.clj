@@ -80,7 +80,7 @@
                      "$device" "discord.clj"}
         :compress false
         :large_threshold 250
-        :intents (get-in gateway [:config :intents])}
+        :intents (get-in gateway [:metadata :intents-value])}
        (format-gateway-message :identify)
        (send-gateway-message gateway)))
 
