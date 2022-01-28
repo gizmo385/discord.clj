@@ -10,6 +10,10 @@
   [:guild-text :dm :guild-voice :group-dm :guild-category :guild-news :guild-store
    :guild-news-thread :guild-public-thread :guild-private-thread :guild-stage-voice])
 
+(defn keys->channel-type-ids
+  [channel-type-keys]
+  (map (fn [ct] (.indexOf channel-types ct)) channel-type-keys))
+
 (def video-quality-modes
   "The quality of streamed video within the channel."
   [:auto :full])

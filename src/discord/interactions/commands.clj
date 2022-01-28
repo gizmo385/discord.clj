@@ -1,6 +1,8 @@
 (ns discord.interactions.commands
   (:require
     [clojure.walk :as w]
+    [clojure.set :as s]
+    [clojure.string :as st]
     [discord.config :as config]
     [discord.api.interactions :as interactions-api]
     [discord.interactions.core :as i]
@@ -52,21 +54,43 @@
   [option-name value]
   {:name option-name :value value})
 
-(defn command-option*
-  "A helper function for defining command options."
-  [option-type option-name description & {:keys [required? choices]
-                                          :or {required? false}}]
-  (cond-> {:name option-name :description description :type option-type :required required?}
-    (some? choices) (assoc :choices choices)))
+(defn- command-option-builder
+  "Helper function for building command option functions. These handle validation of the additional
+   options that can be supplied for application command options (i.e. an integer option can take a
+   :min-value or :max-value but a boolean option cannot)."
+  ([option-type]
+   (command-option-builder option-type {}))
+  ([option-type valid-options]
+   (let [valid-key-set (set (keys valid-options))]
+     (fn built-option
+       ([option-name description]
+        (built-option option-name description false nil))
+       ([option-name description required?]
+        (built-option option-name description required? nil))
+       ([option-name description required? opts]
+        (if-let [invalid-keys (not-empty (s/difference (set (keys opts)) valid-key-set))]
+          (throw (ex-info (format "Invalid opts supplied: %s" (st/join ", " invalid-keys))
+                          {:valid-options valid-key-set
+                           :supplied-options opts
+                           :invalid-option-names invalid-keys}))
+          (-> {:name option-name :description description :type option-type :required required?}
+              (merge (s/rename-keys opts valid-options)))))))))
 
-(def string-option      (partial command-option* string-option-type))
-(def integer-option     (partial command-option* integer-option-type))
-(def boolean-option     (partial command-option* boolean-option-type))
-(def user-option        (partial command-option* user-option-type))
-(def channel-option     (partial command-option* channel-option-type))
-(def role-option        (partial command-option* role-option-type))
-(def mentionable-option (partial command-option* mentionable-option-type))
-(def number-option      (partial command-option* number-option-type))
+(def boolean-option     (command-option-builder boolean-option-type))
+(def user-option        (command-option-builder user-option-type))
+(def role-option        (command-option-builder role-option-type))
+(def mentionable-option (command-option-builder mentionable-option-type))
+(def channel-option     (command-option-builder channel-option-type {:channel-types :channel_types}))
+(def string-option      (command-option-builder string-option-type {:autocompete? :autocomplete
+                                                                    :choices :choices}))
+(def integer-option     (command-option-builder integer-option-type {:min-value :min_value
+                                                                     :max-value :max_value
+                                                                     :autocomplete? :autocomplete
+                                                                     :choices :choices}))
+(def number-option      (command-option-builder integer-option-type {:min-value :min_value
+                                                                     :max-value :max_value
+                                                                     :autocomplete? :autocomplete
+                                                                     :choices :choices}))
 
 (defn slash-command
   "Helper for defining a slash command."

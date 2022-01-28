@@ -24,19 +24,19 @@
         :move "Change the guild's voice region."
         (cmds/string-option
           :region "The new voice region to set for the guild."
-          :choices (map (fn [r] (cmds/option-choice r r)) voice-regions)
-          :required? true)))
+          true
+          {:choices (map (fn [r] (cmds/option-choice r r)) voice-regions)})))
     (cmds/sub-command-group
       :user "User adminstrative actions."
       (cmds/sub-command
         :ban "Permanently ban a user from the guild."
-        (cmds/user-option :user "The user to ban." :required? true)
+        (cmds/user-option :user "The user to ban." true)
         (cmds/integer-option
           :delete-message-days "The number of days to delete their messages (0-7).")
         (cmds/string-option :reason "The reason for the ban (for the audit log)."))
       (cmds/sub-command
         :kick "Kick a user from the guild."
-        (cmds/user-option :user "The user to kick from the server." :required? true)
+        (cmds/user-option :user "The user to kick from the server." true)
         (cmds/string-option :reason "The reason the user was kicked (for the audit log).")))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

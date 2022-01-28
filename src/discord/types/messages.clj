@@ -22,6 +22,7 @@
 
 (defn build-message
   [m]
+  (println m)
   (when m
     (-> m
         (rename-keys {:channel_id :channel-id
