@@ -19,5 +19,7 @@
   :target-path "target/%s"
   :source-paths ["src" "dev"]
   :repl-options {:init-ns user}
+  :plugins [[lein-codox "0.10.8"]]
+  :codox {:output-path "api-docs"}
   :profiles {:uberjar {:aot :all}
              :examples {:source-paths ["examples"]}})
