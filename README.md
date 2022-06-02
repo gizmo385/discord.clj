@@ -1,7 +1,6 @@
 # discord.clj
 
 [![Clojars Project](https://img.shields.io/clojars/v/discord.clj.svg)](https://clojars.org/discord.clj)
-[![Docs](https://cljdoc.org/badge/discord.clj/discord.clj)](https://cljdoc.org/d/discord.clj/discord.clj/CURRENT)
 
 discord.clj is a [Clojure](https://clojure.org/) wrapper around the [Discord
 APIs](https://discordapp.com/developers/docs/intro). The overall goal of this library to painlessly
